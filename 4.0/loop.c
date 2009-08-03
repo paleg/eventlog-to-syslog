@@ -139,11 +139,11 @@ int MainLoop()
 
 			if(fopen_s(&fp, "evtsys.stat", "a+") != 0)
 				Log(LOG_ERROR|LOG_SYS, "Status file did not open!!!");
-			else
+			else {
 				fprintf_s(fp,"%s - Eventlog to Syslog Service Running\n",GetTimeStamp());
-			
-			if(fclose(fp) != 0)
-				Log(LOG_ERROR|LOG_SYS, "Error closing status file!!!");
+				if(fclose(fp) != 0)
+					Log(LOG_ERROR|LOG_SYS, "Error closing status file!!!");
+			}
 		}
 
 		/* Sleep five seconds */
