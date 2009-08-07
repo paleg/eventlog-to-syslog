@@ -450,7 +450,7 @@ char * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 		hProviderMetadata = EvtOpenPublisherMetadata(NULL, pwszPublisherName, NULL, 0, 0);
 		if (NULL == hProviderMetadata) {
 			if (LogInteractive)
-				Log(LOG_ERROR|LOG_SYS, "OpenPublisherMetadata failed for Publisher: \"%s\"", WinEventlogList[log].name);
+				Log(LOG_ERROR|LOG_SYS, "OpenPublisherMetadata failed for Publisher: \"%s\"", source);
 			status = ERR_FAIL;
 			continue;
 		}
@@ -464,7 +464,7 @@ char * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 				free(stringBuffer);
 		}
 		else {
-			Log(LOG_ERROR|LOG_SYS, "Error getting message string for RecordID: %i", WinEventlogList[log].recnum);
+			Log(LOG_ERROR|LOG_SYS, "Error getting message string for RecordID: %i in Log: %s *DETAILS* Publisher: %s EventID: %i", WinEventlogList[log].recnum, WinEventlogList[log].name, source, event_id);
 			status = ERR_FAIL;
 			continue;
 		}
@@ -574,11 +574,11 @@ char * WinEvtTimeToString(ULONGLONG ulongTime)
 	/* Adjust time value to reflect current timezone */
 	/* then convert to a SYSTEMTIME */
 	if (FileTimeToLocalFileTime(&fTime, &lfTime) == 0) {
-		Log(LOG_ERROR|LOG_SYS,"Error formatting event time");
+		Log(LOG_ERROR|LOG_SYS,"Error formatting event time to local time");
 		return NULL;
 	}
 	if (FileTimeToSystemTime(&lfTime, &sysTime) == 0) {
-		Log(LOG_ERROR|LOG_SYS,"Error formatting event time");
+		Log(LOG_ERROR|LOG_SYS,"Error formatting event time to system time");
 		return NULL;
 	}
 
