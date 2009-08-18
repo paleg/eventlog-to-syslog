@@ -37,7 +37,7 @@
      seftch@rit.edu
 
 */
-#define TIMEOUT		1000  // 1 second; Set and use in place of INFINITE in EvtNext call
+#define TIMEOUT		2000  // 2 second; Set and use in place of INFINITE in EvtNext call
 #define QUERY_SZ	192*sizeof(WCHAR)
 #define ERR_FAIL	-1
 #define RENDER_ITEMS 4

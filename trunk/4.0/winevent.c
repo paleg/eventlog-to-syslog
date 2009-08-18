@@ -364,14 +364,20 @@ char * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 
 				/* Record not available (yet) */
 				case ERROR_INVALID_PARAMETER:
+					if (LogInteractive)
+						Log(LOG_INFO|LOG_SYS, "Invalid Parameter in Log: \"%s\"", WinEventlogList[log].name);
 					continue;
 
 				/* Normal end of eventlog messages */
 				case ERROR_HANDLE_EOF:
+					if (LogInteractive)
+						Log(LOG_INFO, "End of Eventlog: \"%s\"", WinEventlogList[log].name);
 					return NULL;
 
 				/* Eventlog probably closing down */
 				case RPC_S_UNKNOWN_IF:
+					if (LogInteractive)
+						Log(LOG_INFO, "Eventlog appears to be shutting down: \"%s\"", WinEventlogList[log].name);
 					return NULL;
 
 				/* Unknown condition */
@@ -384,7 +390,9 @@ char * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 
 		/* Process reopen */
 		if (reopen) {
-			if (WinEventlogOpen(log)) {
+			Log(LOG_INFO, "Reopening Log: %s", WinEventlogList[log].name);
+			if (WinEventlogOpen(log) != 0) {
+				Log(LOG_INFO, "Error reopening Log: %s", WinEventlogList[log].name);
 				ServiceIsRunning = FALSE;
 				return NULL;
 			}
@@ -408,7 +416,6 @@ char * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 				break;
 			} else if (status != ERROR_SUCCESS) {
 				Log(LOG_ERROR|LOG_SYS, "EvtNext: Error getting event from Log: '%s' with RecordID: %i", WinEventlogList[log].name, WinEventlogList[log].recnum);
-				status = ERR_FAIL;
 				continue;
 			}
 		}
@@ -421,7 +428,6 @@ char * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 			pwszPublisherName = (LPWSTR)eventInfo[0].StringVal;
 		}
 		else {
-			status = ERR_FAIL;
 			continue;
 		}
 		eventTime = eventInfo[1].FileTimeVal;
@@ -451,7 +457,6 @@ char * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 		if (NULL == hProviderMetadata) {
 			if (LogInteractive)
 				Log(LOG_ERROR|LOG_SYS, "OpenPublisherMetadata failed for Publisher: \"%s\"", source);
-			status = ERR_FAIL;
 			continue;
 		}
 
@@ -465,7 +470,6 @@ char * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 		}
 		else {
 			Log(LOG_ERROR|LOG_SYS, "Error getting message string for RecordID: %i in Log: %s *DETAILS* Publisher: %s EventID: %i", WinEventlogList[log].recnum, WinEventlogList[log].name, source, event_id);
-			status = ERR_FAIL;
 			continue;
 		}
 
@@ -547,8 +551,10 @@ skip:
     if (hResult)
         EvtClose(hResult);
 
-	if (status == ERR_FAIL)
+	if (status == ERR_FAIL) {
+		Log(LOG_INFO, "Status = ERR_FAIL - Log: \"%s\" & RecNum: %i", WinEventlogList[log].name, WinEventlogList[log].recnum);
 		return NULL; /* Return Failure */
+	}
 	else
 		return "1"; /* Return Success*/
 }
