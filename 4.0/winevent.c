@@ -415,7 +415,8 @@ char * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 				reopen = FALSE;
 				break;
 			} else if (status != ERROR_SUCCESS) {
-				Log(LOG_ERROR|LOG_SYS, "EvtNext: Error getting event from Log: '%s' with RecordID: %i", WinEventlogList[log].name, WinEventlogList[log].recnum);
+				if (status != ERROR_TIMEOUT || LogInteractive)
+					Log(LOG_ERROR|LOG_SYS, "EvtNext: Error getting event from Log: '%s' with RecordID: %i", WinEventlogList[log].name, WinEventlogList[log].recnum);
 				continue;
 			}
 		}

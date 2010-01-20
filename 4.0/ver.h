@@ -55,5 +55,5 @@
 */
 
 #define VERSION_MAJOR	4
-#define VERSION_MINOR	0
-#define VERSION		"4.0"
+#define VERSION_MINOR	1
+#define VERSION		"4.1"
