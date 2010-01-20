@@ -1,27 +1,28 @@
-{\rtf1\ansi\ansicpg1252\deff0\deflang1033\deflangfe1033{\fonttbl{\f0\fswiss\fprq2\fcharset0 Arial;}{\f1\fnil\fprq2\fcharset2 Wingdings;}{\f2\fmodern\fprq1\fcharset0 Courier;}}
+{\rtf1\ansi\ansicpg1252\deff0\deflang1033\deflangfe1033{\fonttbl{\f0\fswiss\fprq2\fcharset0 Arial;}{\f1\froman\fprq2\fcharset0 Times New Roman;}{\f2\fnil\fprq2\fcharset2 Wingdings;}{\f3\fmodern\fprq1\fcharset0 Courier;}}
+{\colortbl ;\red0\green0\blue255;}
 {\stylesheet{ Normal;}{\s1 heading 1;}{\s2 heading 2;}}
-{\*\generator Msftedit 5.41.15.1515;}\viewkind4\uc1\pard\b\f0\fs36 Eventlog to Syslog v4.0\b0\par
-\fs24 Release 4.0\par
-Last revised July 29, 2009\par
+{\*\generator Msftedit 5.41.21.2500;}\viewkind4\uc1\pard\nowidctlpar\b\f0\fs36 Eventlog to Syslog v4.1\b0\f1\par
+\f0\fs24 Release 4.1\par
+Last revised January 20, 2010\par
 \par
 This product includes software developed by Purdue University.\par
-\fs28\par
-\fs24 The Eventlog to Syslog utility is a windows service originally created by Curtis Smith at Purdue University. The original utility and source code can be found at the following website: https://engineering.purdue.edu/ECN/Resources/Documents/UNIX/evtsys/\par
+\f1\fs28\par
+\f0\fs24 The Eventlog to Syslog utility is a windows service originally created by Curtis Smith at Purdue University. The original utility and source code can be found at the following website: https://engineering.purdue.edu/ECN/Resources/Documents/UNIX/evtsys/\par
 \par
 Version 4 was modified by Sherwin Faria in July, 2009, in order to meet the needs of Rochester Institute of Technology.\par
 \par
 This update of the Eventlog to Syslog client builds upon the original code by offering several bug fixes and some additional features.\par
 \par
 Changes in v4.0:\par
-\pard\fi-360\li720\tx720\f1\'a7\tab\f0 Added ability to ignore specific events\par
-\pard\fi-360\li720\f1\'a7\tab\f0 Added a status file for monitoring service operation\par
-\f1\'a7\tab\f0 Added event\rquote s timestamp to outgoing messages\par
-\f1\'a7\tab\f0 Added compatibility with the Vista/Server 2008 Windows Events service\par
-\f1\'a7\tab\f0 Added ability to send to two Syslog servers simultaneously\par
-\f1\'a7\tab\f0 Fixed a possible memory exception with bad message definitions\par
-\f1\'a7\tab\f0 Fixed a bug where utility would not search all message files\par
-\pard\par
-Send all comments, questions, bug reports, and requests to:\par
+\pard\nowidctlpar\fi-360\li720\tx720\f2\'a7\tab\f0 Added ability to ignore specific events\par
+\pard\nowidctlpar\fi-360\li720\f2\'a7\tab\f0 Added a status file for monitoring service operation\par
+\f2\'a7\tab\f0 Added event\rquote s timestamp to outgoing messages\par
+\f2\'a7\tab\f0 Added compatibility with the Vista/Server 2008 Windows Events service\par
+\f2\'a7\tab\f0 Added ability to send to two Syslog servers simultaneously\par
+\f2\'a7\tab\f0 Fixed a possible memory exception with bad message definitions\par
+\f2\'a7\tab\f0 Fixed a bug where utility would not search all message files\par
+\pard\nowidctlpar\f1\par
+\f0 Send all comments, questions, bug reports, and requests to:\par
 \par
 Sherwin Faria\par
 Rochester Institute of Technology\par
@@ -30,19 +31,19 @@ Information & Technology Services, Bldg. 10\par
 Rochester, NY 14623, U.S.A.\par
 sef3444@rit.edu\par
 \par
-\pard\keepn\s1\sb240\sa60\kerning32\b\fs32 TABLE OF CONTENTS\par
-\pard\fi-360\li720\sa60\tx720\kerning0\fs24 1)\tab Usage\par
-\pard\fi-360\li720\sa60 2)\tab Installing the Service\par
+\pard\keepn\nowidctlpar\s1\sb240\sa60\kerning32\b\fs32 TABLE OF CONTENTS\par
+\pard\nowidctlpar\fi-360\li720\sa60\tx720\kerning0\fs24 1)\tab Usage\par
+\pard\nowidctlpar\fi-360\li720\sa60 2)\tab Installing the Service\par
 3)\tab Uninstalling the Service\par
 4)\tab Debug Mode\par
 5)\tab Specifying Log Hosts\par
 6)\tab Specifying Syslog Facility\par
-7)\tab Appendix\fs28\par
-\pard\keepn\s2\sb240\sa60 1.  Usage:\par
-\pard\brdrb\brdrs\brdrw15\brsp20 \li720\b0\fs24\par
-\pard\li720\sb120\f2\fs20 Version: 4.0 (32-bit)\par
-\pard\li720\ri-720 Usage: evtsys.exe -i|-u|-d [-h host] [-b host] [-f facility] [-p port]\par
-\pard\li720   -i           Install service\par
+7)\tab Appendix\f1\fs28\par
+\pard\keepn\nowidctlpar\s2\sb240\sa60\f0 1.  Usage:\par
+\pard\brdrb\brdrs\brdrw15\brsp20 \nowidctlpar\li720\b0\f1\fs24\par
+\pard\nowidctlpar\li720\sb120\f3\fs20 Version: 4.0 (32-bit)\par
+\pard\nowidctlpar\li720\ri-720 Usage: evtsys.exe -i|-u|-d [-h host] [-b host] [-f facility] [-p port]\par
+\pard\nowidctlpar\li720   -i           Install service\par
   -u           Uninstall service\par
   -d           Debug: run as console program\par
   -h host      Name of log host\par
@@ -52,39 +53,39 @@ sef3444@rit.edu\par
 \par
 Default port: 514\par
 Default facility: daemon\par
-\pard\brdrb\brdrs\brdrw15\brsp20 \li720 Host (-h) required if installing.\par
-\pard\f0\fs24\par
-\pard\keepn\s2\sb240\b\fs28 2. Installing the Service\par
-\pard\b0\fs24 The Service installs four registry values in \b HKLM\\SOFTWARE\\ECN\\EvtSys\\3.0\par
-\pard\fi720\b0 Facility (DWORD)\par
+\pard\brdrb\brdrs\brdrw15\brsp20 \nowidctlpar\li720 Host (-h) required if installing.\par
+\pard\nowidctlpar\f1\fs24\par
+\pard\keepn\nowidctlpar\s2\sb240\b\f0\fs28 2. Installing the Service\par
+\pard\nowidctlpar\b0\fs24 The Service installs four registry values in \b HKLM\\SOFTWARE\\ECN\\EvtSys\\3.0\par
+\pard\nowidctlpar\fi720\b0 Facility (DWORD)\par
 LogHost (String)\par
 LogHost2 (String)\par
 Port (DWORD).\par
-\pard\par
-If no secondary host is specified LogHost2 is blank.\par
+\pard\nowidctlpar\f1\par
+\f0 If no secondary host is specified LogHost2 is blank.\par
 It also registers itself as a service under the name evtsys and displays in services.msc as \ldblquote Eventlog to Syslog\rdblquote .\par
 \par
 The program must be installed from the command line and must be located in C:\\Windows\\System32\par
 After you have run evtsys.exe with the \i -i\i0  switch and specified a loghost you can then type \i net start evtsys\i0  to start the service.\par
 To start or stop the service from the command line type: \b\i net start evtsys\b0\i0     or    \b\i net stop evtsys\par
 \b0\i0 Alternatively you can start the service from the Services control panel in Administrative Tools. Look for "Eventlog to Syslog".\par
-\pard\keepn\s2\sb240\b\fs28 3. Uninstalling\par
-\pard\b0\fs24 Uninstalling the service will delete the registry keys created during installation and unregister the Eventlog to Syslog service. All files will remain in their current location.\par
+\pard\keepn\nowidctlpar\s2\sb240\b\fs28 3. Uninstalling\par
+\pard\nowidctlpar\b0\fs24 Uninstalling the service will delete the registry keys created during installation and unregister the Eventlog to Syslog service. All files will remain in their current location.\par
 \par
-\pard\keepn\s2\sb240\sa60\b\fs28 4. Debug Mode\par
-\pard\b0\fs24 Debug mode provides additional information on the operation of the service.\par
+\pard\keepn\nowidctlpar\s2\sb240\sa60\b\fs28 4. Debug Mode\par
+\pard\nowidctlpar\b0\fs24 Debug mode provides additional information on the operation of the service.\par
 The following information is displayed while in debug mode:\par
-\pard\fi-360\li720\tx720\f1\'a7\tab\f0 The source and ID of an ignored event\par
-\pard\fi-360\li720\f1\'a7\tab\f0 All error messages\par
-\pard\par
-\pard\keepn\s2\sb240\sa60\b\fs28 5. Specifying Log Hosts\par
-\pard\b0\fs24 Use command line switches \i\endash h\i0  and \i\endash b\i0  to specify your primary and secondary Syslog servers. The \i\endash b\i0  switch is optional, but \i\endash h\i0  is required when installing the agent. \par
+\pard\nowidctlpar\fi-360\li720\tx720\f2\'a7\tab\f0 The source and ID of an ignored event\par
+\pard\nowidctlpar\fi-360\li720\f2\'a7\tab\f0 All error messages\par
+\pard\nowidctlpar\f1\par
+\pard\keepn\nowidctlpar\s2\sb240\sa60\b\f0\fs28 5. Specifying Log Hosts\par
+\pard\nowidctlpar\b0\fs24 Use command line switches \i\endash h\i0  and \i\endash b\i0  to specify your primary and secondary Syslog servers. The \i\endash b\i0  switch is optional, but \i\endash h\i0  is required when installing the agent. \par
 \par
 You may specify either the hostname or IP address of a host. The utility will convert the hostname into an IP address and store that address into the registry.\par
 \par
-\pard\keepn\s2\sb240\sa60\b\fs28 6. Specifying Facility\par
-\pard\b0\fs24 The Syslog protocol specifies 24 facilities:\par
-\pard\li720   0 kernel messages\par
+\pard\keepn\nowidctlpar\s2\sb240\sa60\b\fs28 6. Specifying Facility\par
+\pard\nowidctlpar\b0\fs24 The Syslog protocol specifies 24 facilities:\par
+\pard\nowidctlpar\li720   0 kernel messages\par
   1 user-level messages\par
   2 mail system\par
   3 system daemons\par
@@ -108,13 +109,13 @@ You may specify either the hostname or IP address of a host. The utility will co
 21 local use 5 (local5)\par
 22 local use 6 (local6)\par
 23 local use 7 (local7)\par
-\pard\par
-By default the \ldblquote Eventlog to Syslog\rdblquote  service logs to facility 3, system daemon, but it can be configured to log to whatever facility you specify using the \i\endash f \-\i0 switch.\par
+\pard\nowidctlpar\f1\par
+\f0 By default the \ldblquote Eventlog to Syslog\rdblquote  service logs to facility 3, system daemon, but it can be configured to log to whatever facility you specify using the \i\endash f \-\i0 switch.\par
 \par
-\pard\keepn\s2\sb240\sa60\b\fs28 7. Appendix\par
-\pard\li360\fs24 7.1 The Configuration File\par
+\pard\keepn\nowidctlpar\s2\sb240\sa60\b\fs28 7. Appendix\par
+\pard\nowidctlpar\li360\fs24 7.1 The Configuration File\par
 \b0 If no configuration file is found a default configuration file is generated with the following contents:\par
-\f2\par
+\f3\par
 \fs20 '!!!!THIS FILE IS REQUIRED FOR THE SERVICE TO FUNCTION!!!!\par
 '\par
 'Comments must start with an apostrophe and\par
@@ -130,11 +131,11 @@ By default the \ldblquote Eventlog to Syslog\rdblquote  service logs to facility
 \par
 \b 7.2 The Status File\par
 \b0 The status file is updated by the agent approximately every two minutes. The agent places a single line in the file in the following format:\par
-\i Mmm dd hh:mm:ss  - Eventlog to Syslog Service Running\i0\par
-You may delete this file at any time and the agent will recreate it at the next interval.\par
+\i Mmm dd hh:mm:ss  - Eventlog to Syslog Service Running\i0\f1\par
+\f0 You may delete this file at any time and the agent will recreate it at the next interval.\par
 \par
-\pard\li360\sa200\b 7.3 Miscellaneous\par
-\pard\li720 7.3.1 Maximum message size\par
+\pard\nowidctlpar\li360\sa200\b 7.3 Miscellaneous\par
+\pard\nowidctlpar\li720 7.3.1 Maximum message size\par
 \b0 The maximum size of a Syslog message is defined as 1024 bytes. Anything beyond this threshold is truncated.\par
 \par
 \b 7.3.2 Polling interval\par
@@ -143,7 +144,13 @@ You may delete this file at any time and the agent will recreate it at the next 
 \b 7.3.3 Timestamps\par
 \b0 Event timestamps are captured from the event itself.\par
 The agent generates its own timestamps for error and informational messages.\par
-\pard\li360\par
-\par
+\f1\par
+\pard\nowidctlpar\li360\sa200\b\f0 7.4 Compiling\f1\line\b0\f0 Compiling the service requires Microsoft Visual Studio. I use 2008, but earlier versions should also work.\f1\par
+\pard\f0 You can change the type of compile you are doing using the vcvarsall.bat script. Details can be found at this site: http://msdn.microsoft.com/en-us/library/x4d2c09s%28VS.80%29.aspx \f1\par
+\pard\nowidctlpar\fi-360\li720\sa200\f0 1.\tab Open the appropriate Visual Studio Command Prompt in (There may be 32Bit and 64Bit shortcuts)\line Start>Programs>Visual Studio 200x>Visual Studio Tools\par
+2.\tab Navigate to the directory containing the source files\par
+3.\tab Type \b\f3 nmake\b0\f1\par
+\f0 4.\tab Wait for the task to complete. All you will need is evtsys.exe and evtsys.dll. There is also an evtsys.pdb file created for debugging if you choose to keep it.\f1\par
+\f0 5.\tab Once completed you can type \b\f3 nmake clean\b0\f0  to delete all created files, but be sure to move evtsys.exe and evtsys.dll first as those will also be deleted.\f1\par
 }
  
