@@ -14,7 +14,7 @@
 	 Rochester, NY 14623 U.S.A.
 	 
 	Send all comments, suggestions, or bug reports to:
-		seftch@rit.edu
+		sherwin.faria@gmail.com
 */
  
 /* 
@@ -80,7 +80,8 @@ static struct RegistryData RegistryApplicationDataList[] = {
 	{ "Facility", REG_DWORD, &SyslogFacility, sizeof(SyslogFacility), TRUE },
 	{ "LogHost", REG_SZ, &SyslogLogHost, sizeof(SyslogLogHost), TRUE },
 	{ "LogHost2", REG_SZ, &SyslogLogHost2, sizeof(SyslogLogHost2), FALSE },
-	{ "Port", REG_DWORD, &SyslogPort, sizeof(SyslogPort), TRUE }
+	{ "Port", REG_DWORD, &SyslogPort, sizeof(SyslogPort), TRUE },
+	{ "QueryDhcp", REG_DWORD, &SyslogQueryDhcp, sizeof(SyslogQueryDhcp), FALSE }
 };
 
 /* Location of eventlog data in registry tree */

@@ -14,7 +14,7 @@
 	 Rochester, NY 14623 U.S.A.
 	 
 	Send all comments, suggestions, or bug reports to:
-		seftch@rit.edu
+		sherwin.faria@gmail.com
 */
  
 /*
@@ -122,6 +122,7 @@ static int LogSend(WORD level, char * message)
 void Log(int level, char * message, ...)
 {
 	WORD eventlog_priority;
+	char hostname[HOSTNAME_SZ];
 	char windows_message[ERRMSG_SZ];
 	char error_message[SYSLOG_SZ-17];
 	char tstamped_message[SYSLOG_SZ];
@@ -171,9 +172,18 @@ void Log(int level, char * message, ...)
 		break;
 	}
 
-	/* Create Timestamp and add to error_message */
+	/* Create Timestamp and add to error_message along with hostname */
 	/* This maintains consistency with regular non-error packets */
 	strncpy_s(tstamped_message, sizeof(tstamped_message), GetTimeStamp(), _TRUNCATE);
+
+	/* Add hostname for RFC compliance (RFC 3164) */
+	if (ExpandEnvironmentStrings("%COMPUTERNAME% ", hostname, sizeof(hostname)) == 0) {
+		strcpy_s(hostname, COUNT_OF(hostname), "HOSTNAME_ERR ");
+		Log(LOG_ERROR|LOG_SYS, "Cannot expand %COMPUTERNAME%");
+	}
+	strncat_s(tstamped_message, sizeof(tstamped_message), hostname, _TRUNCATE);
+
+	/* Add error_message to the string */
 	strncat_s(tstamped_message, sizeof(tstamped_message), error_message, _TRUNCATE);
 
 	/* Send to syslog if network running */

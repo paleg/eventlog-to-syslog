@@ -34,8 +34,8 @@
 
 CFLAGS=/W3 /nologo /Zi
 
-SYS_LIB=advapi32.lib wsock32.lib
-OFILES=check.obj eventlog.obj getopt.obj log.obj loop.obj main.obj registry.obj service.obj support.obj syslog.obj winevent.obj wsock.obj
+SYS_LIB=advapi32.lib wsock32.lib dhcpcsvc.lib iphlpapi.lib user32.lib
+OFILES=check.obj eventlog.obj getopt.obj log.obj loop.obj main.obj registry.obj service.obj support.obj syslog.obj winevent.obj wsock.obj dhcp.obj
 
 all:		evtsys.exe evtsys.dll
 
@@ -44,6 +44,9 @@ evtsys.exe:	$(OFILES) verexe.res
 
 check.obj:	check.c
 		cl $(CFLAGS) /c /MT check.c
+
+dhcp.obj:	dhcp.c
+		cl $(CFLAGS) /c /MT dhcp.c
 
 eventlog.obj:	eventlog.c
 		cl $(CFLAGS) /c /MT eventlog.c
@@ -112,6 +115,10 @@ check.c:	main.h
 check.c:	check.h
 check.c:	log.h
 check.c:	syslog.h
+dhcp.c:		main.h
+dhcp.c:		dhcp.h
+dhcp.c:		log.h
+dhcp.c:		syslog.h
 eventlog.c:	main.h
 eventlog.c:	check.h
 eventlog.c:	eventlog.h
@@ -133,6 +140,7 @@ loop.c:		syslog.h
 loop.c:		ver.h
 main.c:		main.h
 main.c:		check.h
+main.c:		dhcp.h
 main.c:		eventlog.h
 main.c:		log.h
 main.c:		syslog.h
@@ -154,3 +162,5 @@ winevent.c: log.h
 winevent.c: winevent.h
 wsock.c:	main.h
 wsock.c:	log.h
+wsock.c:	syslog.h
+wsock.c:	dhcp.h

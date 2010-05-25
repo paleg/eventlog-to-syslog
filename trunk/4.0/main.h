@@ -14,7 +14,7 @@
 	 Rochester, NY 14623 U.S.A.
 	 
 	Send all comments, suggestions, or bug reports to:
-		seftch@rit.edu
+		sherwin.faria@gmail.com
 */
  
 /*
@@ -57,6 +57,8 @@
 /* Basic include files */
 #include <windows.h>
 #include <winsock.h>
+#include <iphlpapi.h>
+#include <dhcpcsdk.h>
 #include <lm.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,51 +73,56 @@ typedef struct EVENT_LIST EventList;
 /* Constants */
 #define ERRMSG_SZ	256
 #define MAX_IGNORED_EVENTS	256
+#define HOSTNAME_SZ 64
 #define CONFIG_FILE	"evtsys.cfg"
 
 /* Compatibility */
 #define in_addr_t	unsigned long
 
 /* Prototypes */
-int CheckSyslogFacility(char * facility);
-int CheckSyslogPort(char * port);
-int CheckSyslogLogHost(char * loghost, int ID);
-int CheckSyslogIgnoreFile(EventList * ignore_list, char * filename);
-char * CollapseExpandMessage(char * message);
-int IgnoreSyslogEvent(EventList * ignore_list, const char * E_SOURCE, int E_ID);
-int EventlogCreate(char * name);
-int WinEventlogCreate(char * name);
-void EventlogsClose(void);
-void WinEventlogsClose(void);
-int EventlogsOpen(void);
-int WinEventlogsOpen(void);
-char * EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * level);
-char * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log);
-int GetOpt(int nargc, char ** nargv, char * ostr);
-char * GetWinEvent(char * log, int recNum, int event_id);
-int LogStart(void);
-void LogStop(void);
-void Log(int level, char * message, ...);
-int MainLoop(void);
-int RegistryInstall(void);
-int RegistryUninstall(void);
-int RegistryRead(void);
-int RegistryGather(BOOL wEvents);
-int ServiceInstall(void);
-int ServiceRemove(void);
+int     CheckSyslogFacility(char * facility);
+int     CheckSyslogIgnoreFile(EventList * ignore_list, char * filename);
+int     CheckSyslogLogHost(char * loghost, int ID);
+int     CheckSyslogPort(char * port);
+int     CheckSyslogQueryDhcp(char * value);
+char*   CollapseExpandMessage(char * message);
+WCHAR*  CollapseExpandMessageW(WCHAR * message);
+int     EventlogCreate(char * name);
+char*   EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * level);
+void    EventlogsClose(void);
+int     EventlogsOpen(void);
+char*   FormatLibraryMessage(char * message_file, DWORD event_id, char ** string_array);
+void    GetError(DWORD err_num, char * message, int len);
+void    GetErrorW(DWORD err_num, WCHAR * message, int len);
+int     GetOpt(int nargc, char ** nargv, char * ostr);
+char*   GetTimeStamp(void);
+char*   GetUsername(SID * sid);
+char*   GetWinEvent(char * log, int recNum, int event_id);
+int     IgnoreSyslogEvent(EventList * ignore_list, const char * E_SOURCE, int E_ID);
+int     LogStart(void);
+void    LogStop(void);
+void    Log(int level, char * message, ...);
+char*   LookupMessageFile(char * logtype, char * source, DWORD eventID);
+int     MainLoop(void);
+int     RegistryGather(BOOL wEvents);
+int     RegistryInstall(void);
+int     RegistryRead(void);
+int     RegistryUninstall(void);
+int     ServiceInstall(void);
+int     ServiceRemove(void);
 DWORD WINAPI ServiceStart(void);
-void GetError(DWORD err_num, char * message, int len);
-char * GetUsername(SID * sid);
-char * GetTimeStamp(void);
-char * LookupMessageFile(char * logtype, char * source, DWORD eventID);
-char * FormatLibraryMessage(char * message_file, DWORD event_id, char ** string_array);
-int SyslogOpen(int ID);
-void SyslogClose(void);
-int SyslogSend(char * message, int level);
-char * TimeToString(DWORD dw);
-char * WinEvtTimeToString(ULONGLONG fTime);
-int WSockStart(void);
-void WSockStop(void);
-int WSockOpen(char * loghost, unsigned short port, int ID);
-void WSockClose(void);
-int WSockSend(char * message);
+void    SyslogClose(void);
+int     SyslogOpen(int ID);
+int     SyslogSend(char * message, int level);
+int     SyslogSendW(WCHAR * message, int level);
+char*   TimeToString(DWORD dw);
+int     WinEventlogCreate(char * name);
+void    WinEventlogsClose(void);
+int     WinEventlogsOpen(void);
+WCHAR*  WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log);
+WCHAR*  WinEvtTimeToString(ULONGLONG fTime);
+void    WSockClose(void);
+int     WSockOpen(char * loghost, unsigned short port, int ID);
+int     WSockSend(char * message);
+int     WSockStart(void);
+void    WSockStop(void);

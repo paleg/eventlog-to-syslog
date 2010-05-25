@@ -14,7 +14,7 @@
 	 Rochester, NY 14623 U.S.A.
 	 
 	Send all comments, suggestions, or bug reports to:
-		seftch@rit.edu
+		sherwin.faria@gmail.com
 */
  
 /*
@@ -57,6 +57,8 @@
 /* Include files */
 #include "main.h"
 #include "log.h"
+#include "syslog.h"
+#include "dhcp.h"
 
 /* WinSock */
 
@@ -67,10 +69,12 @@ static BOOL WSockStarted = FALSE;
 /* Connection socket */
 SOCKET WSockSocket = INVALID_SOCKET;
 SOCKET WSockSocket2 = INVALID_SOCKET;
+SOCKET WSockSocketDhcp = INVALID_SOCKET;
 
 /* Where to send syslog information */
 static struct sockaddr_in WSockAddress;
 static struct sockaddr_in WSockAddress2;
+static struct sockaddr_in WSockAddressDhcp;
 
 /* Start Winsock access */
 int WSockStart()
@@ -118,10 +122,11 @@ int WSockOpen(char * loghost, unsigned short port, int ID)
 		return 1;
 	}
 
-	/* Initialize remote address structure */
-	/* Terrible workaround so that we don't have to rewrite */
-	/* the old implementation. Needs to be fixed properly.  */
-	/*                                             Sherwin  */
+	/* Initialize remote address structure
+	 * Terrible workaround so that we don't have to rewrite
+	 * the old implementation. Needs to be fixed properly.
+	 *                                             Sherwin
+	 */
 	if (ID == 1) {
 		memset(&WSockAddress, 0, sizeof(WSockAddress));
 		WSockAddress.sin_family = AF_INET;
@@ -134,7 +139,7 @@ int WSockOpen(char * loghost, unsigned short port, int ID)
 			Log(LOG_ERROR|LOG_SYS, "Cannot create a datagram socket for primary host");
 			return 1;
 		}
-	} else {
+	} else if (ID == 2) {
 		/* Initialize remote address structure */
 		memset(&WSockAddress2, 0, sizeof(WSockAddress2));
 		WSockAddress2.sin_family = AF_INET;
@@ -145,6 +150,21 @@ int WSockOpen(char * loghost, unsigned short port, int ID)
 		WSockSocket2 = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 		if (WSockSocket2 == INVALID_SOCKET) {
 			Log(LOG_ERROR|LOG_SYS, "Cannot create a datagram socket for secondary host");
+			return 1;
+		}
+	} else if (ID == 3) {
+
+		/* Initialize remote address structure */
+		memset(&WSockAddressDhcp, 0, sizeof(WSockAddressDhcp));
+		WSockAddressDhcp.sin_family = AF_INET;
+		WSockAddressDhcp.sin_port = htons(port);
+		WSockAddressDhcp.sin_addr.s_addr = ip;
+
+		/* Create socket */
+		WSockSocketDhcp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+		if (WSockSocketDhcp == INVALID_SOCKET) {
+			Log(LOG_ERROR|LOG_SYS, "Cannot create a datagram socket for dhcp-specified host");
 			return 1;
 		}
 	}
@@ -165,30 +185,51 @@ void WSockClose()
 		closesocket(WSockSocket2);
 		WSockSocket2 = INVALID_SOCKET;
 	}
+	if (WSockSocketDhcp != INVALID_SOCKET) {
+		closesocket(WSockSocketDhcp);
+		WSockSocketDhcp = INVALID_SOCKET;
+	}
 }
 
 /* Send data to syslog */
 int WSockSend(char * message)
 {
 	int len;
+	int done = 0;
 
 	/* Get message length */
 	len = (int) strlen(message);
 
-	/* Send to syslog server */
-	if (sendto(WSockSocket, message, len, 0, (struct sockaddr *) &WSockAddress, sizeof(WSockAddress)) != len) {
-		if (h_errno != WSAEHOSTUNREACH && h_errno != WSAENETUNREACH) {
-			Log(LOG_ERROR|LOG_SYS, "Cannot send message through socket for host 1");
-			return 1;
-		}
-	}
-	if (WSockSocket2 != INVALID_SOCKET)
-		if (sendto(WSockSocket2, message, len, 0, (struct sockaddr *) &WSockAddress2, sizeof(WSockAddress2)) != len) {
+	/* Send to syslog server, try dhcp first if valid, user specified servers then */
+	/* Currently only one dhcp server can be specified. May change this in the future */
+	if( SyslogQueryDhcp && (WSockSocketDhcp != INVALID_SOCKET) ) {
+
+		if( sendto(WSockSocketDhcp, message, len, 0, (struct sockaddr *) &WSockAddressDhcp, sizeof(WSockAddress)) != len) {
 			if (h_errno != WSAEHOSTUNREACH && h_errno != WSAENETUNREACH) {
-				Log(LOG_ERROR|LOG_SYS, "Cannot send message through socket for host 2");
+				Log(LOG_ERROR|LOG_SYS, "Cannot send message through socket for host dhcp");
 				return 1;
 			}
 		}
+
+	} else {
+		if (WSockSocket != INVALID_SOCKET) {
+			if (sendto(WSockSocket, message, len, 0, (struct sockaddr *) &WSockAddress, sizeof(WSockAddress)) != len) {
+				if (h_errno != WSAEHOSTUNREACH && h_errno != WSAENETUNREACH) {
+					Log(LOG_ERROR|LOG_SYS, "Cannot send message through socket for host 1");
+					return 1;
+				}
+			}
+		}
+
+		if (WSockSocket2 != INVALID_SOCKET) {
+			if (sendto(WSockSocket2, message, len, 0, (struct sockaddr *) &WSockAddress2, sizeof(WSockAddress2)) != len) {
+				if (h_errno != WSAEHOSTUNREACH && h_errno != WSAENETUNREACH) {
+					Log(LOG_ERROR|LOG_SYS, "Cannot send message through socket for host 2");
+					return 1;
+				}
+			}
+		}
+	}
 
 	/* Success */
 	return 0;

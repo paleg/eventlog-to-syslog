@@ -34,7 +34,7 @@
      Rochester, NY 14623 U.S.A.
 
   Send all comments, suggestions, or bug reports to:
-     seftch@rit.edu
+     sherwin.faria@gmail.com
 
 */
 #include "main.h"
@@ -54,9 +54,9 @@
 
 /* Eventlog descriptor */
 struct WinEventlog {
-	char name[WIN_EVENTLOG_NAME_SZ];	/* Name of eventlog		*/
+	WCHAR name[WIN_EVENTLOG_NAME_SZ];	/* Name of eventlog		*/
 	HANDLE handle;					/* Handle to eventlog	*/
-	int recnum;			/* Next record number		*/
+	int recnum;					/* Next record number		*/
 };
 
 /* List of eventlogs */
@@ -159,38 +159,6 @@ LPWSTR GetMessageString(EVT_HANDLE hMetadata, EVT_HANDLE hEvent)
 	return pBuffer;
 }
 
-/* Convert wide character strings to multibyte strings */
-char * WideToMultiByteConverter(LPWSTR strConvert, SIZE_T bufferSize)
-{
-	SIZE_T cConverted = 0;
-	WCHAR * ptrWchar = strConvert;
-	WCHAR wch;
-
-	char * buffer;
-	buffer = (char*)malloc(bufferSize);
-
-	/* Attempt to Convert */
-	wcstombs_s(&cConverted, buffer, bufferSize, strConvert, _TRUNCATE);
-
-	/* If Conversion failed check string for bad characters */
-	/* and replace them with '?' then try the conversion again*/
-	if (cConverted == 0){
-		wch = *ptrWchar;
-		while (wch != L'\0') {
-			if(wctob(wch) == -1) {
-				wch = L'?';
-				*ptrWchar = wch;
-			}
-			ptrWchar++;
-			wch = *ptrWchar;
-		}
-		/* Attempt to Convert again*/
-		wcstombs_s(&cConverted, buffer, bufferSize, strConvert, _TRUNCATE);
-	}
-
-	return buffer;
-}
-
 /* Create new eventlog descriptor */
 int WinEventlogCreate(char * name)
 {
@@ -201,7 +169,7 @@ int WinEventlogCreate(char * name)
 	}
 
 	/* Store new name */
-	strncpy_s(WinEventlogList[WinEventlogCount].name, sizeof(WinEventlogList[WinEventlogCount].name), name, _TRUNCATE);
+	_snwprintf_s(WinEventlogList[WinEventlogCount].name, COUNT_OF(WinEventlogList[WinEventlogCount].name), _TRUNCATE, L"%S", name);
 
 	/* Increment count */
 	WinEventlogCount++;
@@ -242,21 +210,21 @@ static int WinEventlogOpen(int log)
 	WinEventlogList[log].recnum = 1;
 
 	/* Open log */
-	WinEventlogList[log].handle = OpenEventLog(NULL, WinEventlogList[log].name);
+	WinEventlogList[log].handle = OpenEventLogW(NULL, WinEventlogList[log].name);
 	if (WinEventlogList[log].handle == NULL) {
-		Log(LOG_ERROR|LOG_SYS, "Cannot open event log: \"%s\"", WinEventlogList[log].name);
+		Log(LOG_ERROR|LOG_SYS, "Cannot open event log: \"%S\"", WinEventlogList[log].name);
 		return 1;
 	}
 
 	/* Get number of records to skip */
 	if (GetNumberOfEventLogRecords(WinEventlogList[log].handle, &count) == 0) {
-		Log(LOG_ERROR|LOG_SYS, "Cannot get record count for event log: \"%s\"", WinEventlogList[log].name);
+		Log(LOG_ERROR|LOG_SYS, "Cannot get record count for event log: \"%S\"", WinEventlogList[log].name);
 		return 1;
 	}
 
 	/* Get oldest record number */
 	if (GetOldestEventLogRecord(WinEventlogList[log].handle, &oldest) == 0 && count != 0) {
-		Log(LOG_ERROR|LOG_SYS, "Cannot get oldest record number for event log: \"%s\"", WinEventlogList[log].name);
+		Log(LOG_ERROR|LOG_SYS, "Cannot get oldest record number for event log: \"%S\"", WinEventlogList[log].name);
 		return 1;
 	}
 
@@ -302,7 +270,7 @@ EVT_HANDLE WinEventQuery(LPWSTR pwsQuery)
 		status = GetLastError();
 
 		if (status == ERROR_EVT_CHANNEL_NOT_FOUND)
-			Log(LOG_ERROR, "EvtQuery: Channel \"%s\" was not found",pwsQuery);
+			Log(LOG_ERROR, "EvtQuery: Channel \"%S\" was not found",pwsQuery);
 		else if (status == RPC_S_UNKNOWN_IF)
 			Log(LOG_ERROR|LOG_SYS, "Error: Eventlog Service appears to be shutting down");
 		else
@@ -313,7 +281,7 @@ EVT_HANDLE WinEventQuery(LPWSTR pwsQuery)
 }
 
 /* Get the next eventlog message */
-char * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
+WCHAR * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 {
     EVT_HANDLE hProviderMetadata = NULL;
     EVT_HANDLE hResult = NULL;
@@ -331,18 +299,19 @@ char * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 
 	BOOL reopen = FALSE;
 
-	char source[128];
-	char * stringBuffer = NULL;
-	char * formatted_string = NULL;
-	char * tstamp = NULL;
-	char defmsg[ERRMSG_SZ];
-	char message_string[SYSLOG_SZ-17];
-	char tstamped_message[SYSLOG_SZ];
+	char mbsource[SOURCE_SZ];
+	WCHAR source[SOURCE_SZ];
+	WCHAR hostname[HOSTNAME_SZ];
+	WCHAR * formatted_string = NULL;
+	WCHAR * tstamp = NULL;
+	WCHAR * index = NULL;
+	WCHAR defmsg[ERRMSG_SZ];
+	WCHAR tstamped_message[SYSLOG_SZ];
 
 	pwsQuery = (LPWSTR)malloc(QUERY_SZ);
 
 	/* Create the query to pull the specified event */
-	swprintf_s(pwsQuery, QUERY_SZ, L"<QueryList><Query Path='%S'><Select>*[System[EventRecordID >= %i]]</Select></Query></QueryList>", WinEventlogList[log].name, WinEventlogList[log].recnum);
+	swprintf_s(pwsQuery, QUERY_SZ/sizeof(WCHAR), L"<QueryList><Query Path='%s'><Select>*[System[EventRecordID >= %i]]</Select></Query></QueryList>", WinEventlogList[log].name, WinEventlogList[log].recnum);
 
 	do {
 		hResult = WinEventQuery(pwsQuery);
@@ -352,37 +321,37 @@ char * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 			switch (status) {
 				/* Eventlog corrupted (?)... Reopen */
 				case ERROR_EVENTLOG_FILE_CORRUPT:
-					Log(LOG_INFO, "Eventlog was corrupted: \"%s\"", WinEventlogList[log].name);
+					Log(LOG_INFO, "Eventlog was corrupted: \"%S\"", WinEventlogList[log].name);
 					reopen = TRUE;
 					break;
 
 				/* Eventlog files are clearing... Reopen */
 				case ERROR_EVENTLOG_FILE_CHANGED:
-					Log(LOG_INFO, "Eventlog was cleared: \"%s\"", WinEventlogList[log].name);
+					Log(LOG_INFO, "Eventlog was cleared: \"%S\"", WinEventlogList[log].name);
 					reopen = TRUE;
 					break;
 
 				/* Record not available (yet) */
 				case ERROR_INVALID_PARAMETER:
 					if (LogInteractive)
-						Log(LOG_INFO|LOG_SYS, "Invalid Parameter in Log: \"%s\"", WinEventlogList[log].name);
+						Log(LOG_INFO|LOG_SYS, "Invalid Parameter in Log: \"%S\"", WinEventlogList[log].name);
 					continue;
 
 				/* Normal end of eventlog messages */
 				case ERROR_HANDLE_EOF:
 					if (LogInteractive)
-						Log(LOG_INFO, "End of Eventlog: \"%s\"", WinEventlogList[log].name);
+						Log(LOG_INFO, "End of Eventlog: \"%S\"", WinEventlogList[log].name);
 					return NULL;
 
 				/* Eventlog probably closing down */
 				case RPC_S_UNKNOWN_IF:
 					if (LogInteractive)
-						Log(LOG_INFO, "Eventlog appears to be shutting down: \"%s\"", WinEventlogList[log].name);
+						Log(LOG_INFO, "Eventlog appears to be shutting down: \"%S\"", WinEventlogList[log].name);
 					return NULL;
 
 				/* Unknown condition */
 				default:
-					Log(LOG_ERROR|LOG_SYS, "Eventlog \"%s\" returned error", WinEventlogList[log].name);
+					Log(LOG_ERROR|LOG_SYS, "Eventlog \"%S\" returned error", WinEventlogList[log].name);
 					ServiceIsRunning = FALSE;
 					return NULL;
 			}
@@ -390,9 +359,9 @@ char * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 
 		/* Process reopen */
 		if (reopen) {
-			Log(LOG_INFO, "Reopening Log: %s", WinEventlogList[log].name);
+			Log(LOG_INFO, "Reopening Log: %S", WinEventlogList[log].name);
 			if (WinEventlogOpen(log) != 0) {
-				Log(LOG_INFO, "Error reopening Log: %s", WinEventlogList[log].name);
+				Log(LOG_INFO, "Error reopening Log: %S", WinEventlogList[log].name);
 				ServiceIsRunning = FALSE;
 				return NULL;
 			}
@@ -416,7 +385,7 @@ char * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 				break;
 			} else if (status != ERROR_SUCCESS) {
 				if (status != ERROR_TIMEOUT || LogInteractive)
-					Log(LOG_ERROR|LOG_SYS, "EvtNext: Error getting event from Log: '%s' with RecordID: %i", WinEventlogList[log].name, WinEventlogList[log].recnum);
+					Log(LOG_ERROR|LOG_SYS, "EvtNext: Error getting event from Log: '%S' with RecordID: %i", WinEventlogList[log].name, WinEventlogList[log].recnum);
 				continue;
 			}
 		}
@@ -434,68 +403,73 @@ char * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 		eventTime = eventInfo[1].FileTimeVal;
 		event_id = eventInfo[2].UInt16Val;
 
-		/* Convert Publisher Name into a multibyte string for later use */
-		stringBuffer = WideToMultiByteConverter(pwszPublisherName, sizeof(source));
-
 		/* Check for the "Microsoft-Windows-" prefix in the publisher name */
 		/* and remove it if found. Saves 18 characters in the message */
-		if(strncmp(stringBuffer, "Microsoft-Windows-", 18) == 0)
-			strncpy_s(source, sizeof(source), stringBuffer+18, _TRUNCATE);
+		if(wcsncmp(pwszPublisherName, L"Microsoft-Windows-", 18) == 0)
+			wcsncpy_s(source, COUNT_OF(source), pwszPublisherName+18, _TRUNCATE);
 		else
-			strncpy_s(source, sizeof(source), stringBuffer, _TRUNCATE);
+			wcsncpy_s(source, COUNT_OF(source), pwszPublisherName, _TRUNCATE);
 
-		if (stringBuffer)
-			free(stringBuffer);
+		/* Check Event Info Against Ignore List */
+		WideCharToMultiByte(CP_UTF8, 0, source, -1, mbsource, SOURCE_SZ, NULL, NULL);
+		if (IgnoreSyslogEvent(ignore_list, mbsource, event_id)) {
+			if (LogInteractive)
+				wprintf(L"IGNORING_EVENT: SOURCE=%S & ID=%i\n", mbsource, event_id);
+			goto skip;
+		}
 
+		/* Format Event Timestamp */
 		if ((tstamp = WinEvtTimeToString(eventTime)) == NULL)
-			tstamp = GetTimeStamp();
+			tstamp = L"TIME_ERROR";
 
-		/* Add Timestamp then format source & event ID for consistency with Event Viewer */
-		_snprintf_s(tstamped_message, sizeof(tstamped_message), _TRUNCATE, "%s %s: %i: ", tstamp, source, event_id);
+		/* Add hostname for RFC compliance (RFC 3164) */
+		if (ExpandEnvironmentStringsW(L"%COMPUTERNAME%", hostname, COUNT_OF(hostname)) == 0) {
+			wcscpy_s(hostname, COUNT_OF(hostname), L"HOSTNAME_ERR");
+			Log(LOG_ERROR|LOG_SYS, "Cannot expand %COMPUTERNAME%");
+		}
+
+		/* replace every space in source by underscores */
+		index = source;
+		while( *index ) {
+			if( *index == L' ' ) {
+				*index = L'_';
+			}
+			index++;
+		}
+
+		/* Add Timestamp and hostname then format source & event ID for consistency with Event Viewer */
+		_snwprintf_s(tstamped_message, COUNT_OF(tstamped_message), _TRUNCATE, L"%s %s %s: %i: ", tstamp, hostname, source, event_id);
 
 		/* Get the handle to the provider's metadata that contains the message strings. */
 		hProviderMetadata = EvtOpenPublisherMetadata(NULL, pwszPublisherName, NULL, 0, 0);
 		if (NULL == hProviderMetadata) {
 			if (LogInteractive)
-				Log(LOG_ERROR|LOG_SYS, "OpenPublisherMetadata failed for Publisher: \"%s\"", source);
+				Log(LOG_ERROR|LOG_SYS, "OpenPublisherMetadata failed for Publisher: \"%S\"", source);
 			continue;
 		}
 
-		/* Get the message string from the event and convert to multibyte string. */
+		/* Get the message string from the event */
 		pwsMessage = GetMessageString(hProviderMetadata, hEvent);
-		if (pwsMessage) {
-			stringBuffer = WideToMultiByteConverter(pwsMessage, sizeof(message_string));
-			strncpy_s(message_string, sizeof(message_string), stringBuffer, _TRUNCATE);
-			if (stringBuffer)
-				free(stringBuffer);
-		}
-		else {
-			Log(LOG_ERROR|LOG_SYS, "Error getting message string for RecordID: %i in Log: %s *DETAILS* Publisher: %s EventID: %i", WinEventlogList[log].recnum, WinEventlogList[log].name, source, event_id);
+		if (pwsMessage == NULL) {
+			Log(LOG_ERROR|LOG_SYS, "Error getting message string for RecordID: %i in Log: %S DETAILS: Publisher: %S EventID: %i", WinEventlogList[log].recnum, WinEventlogList[log].name, source, event_id);
 			continue;
-		}
-
-		/* Combine the message strings */
-		strncat_s(tstamped_message, sizeof(tstamped_message), message_string, _TRUNCATE);
-
-		/* Check Event Info Against Ignore List */
-		if (IgnoreSyslogEvent(ignore_list, source, event_id)) {
-			if (LogInteractive)
-				printf("IGNORING_EVENT: SOURCE=%s & ID=%i\n", source, event_id);
-			goto skip;
 		}
 
 		/* Get string and strip whitespace */
-		formatted_string = CollapseExpandMessage(tstamped_message);
+		formatted_string = CollapseExpandMessageW(pwsMessage);
 
 		/* Create a default message if resources or formatting didn't work */
 		if (formatted_string == NULL) {
-			_snprintf_s(defmsg, sizeof(defmsg), _TRUNCATE,
-				"(Facility: %u, Status: %s)",
+			_snwprintf_s(defmsg, COUNT_OF(defmsg), _TRUNCATE,
+				L"(Facility: %u, Status: %s)",
 				HRESULT_FACILITY(event_id),
-				FAILED(event_id) ? "Failure" : "Success"
+				FAILED(event_id) ? L"Failure" : L"Success"
 			);
 			formatted_string = defmsg;
 		}
+
+		/* Combine the message strings */
+		wcsncat_s(tstamped_message, COUNT_OF(tstamped_message), formatted_string, _TRUNCATE);
 
 		/* Select syslog level */
 		switch ((int)eventInfo[3].ByteVal) {
@@ -526,7 +500,7 @@ char * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 		}
 
 		/* Send the event to the Syslog Server */
-		if (SyslogSend(formatted_string, level)) 
+		if (SyslogSendW(tstamped_message, level))
 			status = ERR_FAIL;
 
 skip:
@@ -553,22 +527,22 @@ skip:
         EvtClose(hResult);
 
 	if (status == ERR_FAIL) {
-		Log(LOG_INFO, "Status = ERR_FAIL - Log: \"%s\" & RecNum: %i", WinEventlogList[log].name, WinEventlogList[log].recnum);
+		Log(LOG_INFO, "Status = ERR_FAIL - Log: \"%S\" & RecNum: %i", WinEventlogList[log].name, WinEventlogList[log].recnum);
 		return NULL; /* Return Failure */
 	}
 	else
-		return "1"; /* Return Success*/
+		return L"1"; /* Return Success*/
 }
 
 /* Format Timestamp from EventLog */
-char * WinEvtTimeToString(ULONGLONG ulongTime)
+WCHAR * WinEvtTimeToString(ULONGLONG ulongTime)
 {
 	SYSTEMTIME sysTime;
 	FILETIME fTime, lfTime;
 	ULARGE_INTEGER ulargeTime;
 	struct tm tm_struct;
-	char result[17] = "";
-	static char * formatted_result = "Mmm dd hh:mm:ss ";
+	WCHAR result[17] = L"";
+	static WCHAR * formatted_result = L"Mmm dd hh:mm:ss";
 
 	memset(&tm_struct, 0, sizeof(tm_struct));
 
@@ -599,11 +573,11 @@ char * WinEvtTimeToString(ULONGLONG ulongTime)
 	tm_struct.tm_sec  = sysTime.wSecond;
 	
 	/* Format timestamp string */
-	strftime(result, sizeof(result), "%b %d %H:%M:%S ", &tm_struct);
-	if (result[4] == '0') /* Replace leading zero with a space for */
-		result[4] = ' ';  /* single digit days so we comply with the RFC */
+	wcsftime(result, COUNT_OF(result), L"%b %d %H:%M:%S", &tm_struct);
+	if (result[4] == L'0') /* Replace leading zero with a space for */
+		result[4] = L' ';  /* single digit days so we comply with the RFC */
 
-	strncpy_s(formatted_result, sizeof("Mmm dd hh:mm:ss "), result, _TRUNCATE);
+	wcsncpy_s(formatted_result, COUNT_OF(L"Mmm dd hh:mm:ss"), result, _TRUNCATE);
 	
 	return formatted_result;
 }
