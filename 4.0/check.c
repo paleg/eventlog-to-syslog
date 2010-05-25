@@ -14,7 +14,7 @@
 	 Rochester, NY 14623 U.S.A.
 	 
 	Send all comments, suggestions, or bug reports to:
-		seftch@rit.edu
+		sherwin.faria@gmail.com
 */
  
 /*
@@ -257,6 +257,28 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, char * filename)
 
 		fclose (file);
 	}
+
+	/* Success */
+	return 0;
+}
+
+
+/* Check for DHCP flag */
+int CheckSyslogQueryDhcp(char * arg)
+{
+	DWORD value;
+
+	/* Try converting to integer */
+	value = atoi(arg);
+
+	/* Check for valid number */
+	if (value < 0 || value > 0xffff) {
+		Log(LOG_ERROR, "Invalid boolean value: %s", arg);
+		return 1;
+	}
+
+	/* Store new value */
+	SyslogQueryDhcp = value ? TRUE : FALSE;
 
 	/* Success */
 	return 0;

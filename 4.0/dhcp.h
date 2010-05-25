@@ -1,3 +1,5 @@
+/*  This DHCP Code is provided by Damien Mascre of the University of Paris */
+
 /*
   This code is a modification of the original Eventlog to Syslog Script written by
   Curtis Smith of Purdue University. The original copyright notice can be found below.
@@ -51,9 +53,6 @@
 
   Send all comments, suggestions, or bug reports to:
      software@ecn.purdue.edu
- 
 */
 
-#define VERSION_MAJOR	4
-#define VERSION_MINOR	2
-#define VERSION		"4.2"
+int DHCPQuery(void);

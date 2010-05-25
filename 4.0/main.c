@@ -14,7 +14,7 @@
 	 Rochester, NY 14623 U.S.A.
 	 
 	Send all comments, suggestions, or bug reports to:
-		seftch@rit.edu
+		sherwin.faria@gmail.com
 */
  
 /*
@@ -63,6 +63,7 @@
 #include "ver.h"
 #include "check.h"
 #include "winevent.h"
+#include "dhcp.h"
 
 /* Main program */
 
@@ -75,6 +76,7 @@ static char * ProgramSyslogFacility = NULL;
 static char * ProgramSyslogLogHost = NULL;
 static char * ProgramSyslogLogHost2 = NULL;
 static char * ProgramSyslogPort = NULL;
+static char * ProgramSyslogQueryDhcp = NULL;
 static EventList IgnoredEvents[MAX_IGNORED_EVENTS];
 
 /* Operate on program flags */
@@ -115,6 +117,11 @@ static int mainOperateFlags()
 	/* Load the current registry keys */
 	if (RegistryRead())
 		return 1;
+
+	/* query the dhcp if enabled */
+	if( SyslogQueryDhcp && !DHCPQuery() ) {
+		SyslogOpen(3);
+	}
 
 	/* Start network connection */
 	if (SyslogOpen(1))
@@ -157,6 +164,7 @@ static void mainUsage()
 		fputs("  -b host      Name of secondary log host\n", stderr);
 		fputs("  -f facility  Facility level of syslog message\n", stderr);
 		fputs("  -p port      Port number of syslogd\n", stderr);
+		fputs("  -q bool      Query the Dhcp server to obtain the syslog/port to log to (0/1 = disable/enable)\n", stderr);
 		fputc('\n', stderr);
 		fprintf(stderr, "Default port: %u\n", SYSLOG_DEF_PORT);
 		fprintf(stderr, "Default facility: %s\n", SYSLOG_DEF_FAC_NAME);
@@ -171,7 +179,7 @@ static int mainProcessFlags(int argc, char ** argv)
 	int flag;
 
 	/* Note all actions */
-	while ((flag = GetOpt(argc, argv, "f:iudh:b:p:")) != EOF) {
+	while ((flag = GetOpt(argc, argv, "f:iudh:b:p:q:")) != EOF) {
 		switch (flag) {
 		case 'd':
 			ProgramDebug = TRUE;
@@ -190,6 +198,9 @@ static int mainProcessFlags(int argc, char ** argv)
 			break;
 		case 'p':
 			ProgramSyslogPort = GetOptArg;
+			break;
+		case 'q':
+			ProgramSyslogQueryDhcp = GetOptArg;
 			break;
 		case 'u':
 			ProgramUninstall = TRUE;
@@ -239,6 +250,10 @@ static int mainProcessFlags(int argc, char ** argv)
 	}
 	if (ProgramSyslogPort) {
 		if (CheckSyslogPort(ProgramSyslogPort))
+			return 1;
+	}
+	if (ProgramSyslogQueryDhcp) {
+		if (CheckSyslogQueryDhcp(ProgramSyslogQueryDhcp))
 			return 1;
 	}
 

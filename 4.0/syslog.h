@@ -14,7 +14,7 @@
 	 Rochester, NY 14623 U.S.A.
 	 
 	Send all comments, suggestions, or bug reports to:
-		seftch@rit.edu
+		sherwin.faria@gmail.com
 */
  
 /*
@@ -145,6 +145,9 @@
 /* Application data configuration */
 extern char SyslogLogHost[SYSLOG_HOST_SZ+1];
 extern char SyslogLogHost2[SYSLOG_HOST_SZ+1];
+extern char SyslogLogHostDhcp[SYSLOG_HOST_SZ+1];
 extern char SyslogConfigFile[MAX_CONFIG_FNAME+1];
 extern DWORD SyslogPort;
+extern DWORD SyslogPortDhcp;
 extern DWORD SyslogFacility;
+extern DWORD SyslogQueryDhcp;

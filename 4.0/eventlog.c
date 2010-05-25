@@ -14,7 +14,7 @@
 	 Rochester, NY 14623 U.S.A.
 	 
 	Send all comments, suggestions, or bug reports to:
-		seftch@rit.edu
+		sherwin.faria@gmail.com
 */
  
 /*
@@ -199,9 +199,11 @@ char * EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * le
 	char * source;
 	char * string_array[EVENTLOG_ARRAY_SZ];
 	char * username;
+	char hostname[HOSTNAME_SZ];
 	char defmsg[ERRMSG_SZ];
 	int event_id;
 	int i;
+	char *index;
 
 	static char message[SYSLOG_SZ-17];
 	static char tstamped_message[SYSLOG_SZ];
@@ -286,15 +288,8 @@ char * EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * le
 	/* Advance position */
 	EventlogList[log].pos += event->Length;
 
-	/* Get source */
+	/* Get source and event id */
 	source = current + sizeof(*event);
-
-	/* Format source and event ID number */
-	_snprintf_s(message, sizeof(message), _TRUNCATE,
-		"%s: %u: ",
-		source,
-		HRESULT_CODE(event->EventID)
-	);
 	event_id = (int) HRESULT_CODE(event->EventID);
 	
 	/* Check Event Info Against Ignore List */
@@ -303,18 +298,19 @@ char * EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * le
 			printf("IGNORING_EVENT: SOURCE=%s & ID=%i\n", source, event_id);
 		return "Skip!!!";
 	}
-
-	/* Convert user */
-	if (event->UserSidLength > 0) {
-		username = GetUsername((SID *) (current + event->UserSidOffset));
-		if (username) {
-			strncat_s(message, sizeof(message), username, _TRUNCATE);
-			strncat_s(message, sizeof(message), ": ", _TRUNCATE);
-		}
-	}
 	
 	/* Query and format timestamp from EventLog */
 	strncpy_s(tstamped_message, sizeof(tstamped_message), TimeToString(event->TimeGenerated), _TRUNCATE);
+	
+	/* Add hostname for RFC compliance (RFC 3164) */
+	if (ExpandEnvironmentStrings(" %COMPUTERNAME% ", hostname, COUNT_OF(hostname)) == 0) {
+		strcpy_s(hostname, COUNT_OF(hostname), " HOSTNAME_ERR ");
+		Log(LOG_ERROR|LOG_SYS, "Cannot expand %COMPUTERNAME%");
+	}
+	strncat_s(tstamped_message, sizeof(tstamped_message), hostname, _TRUNCATE);
+	
+	if (hostname)
+		free(hostname);
 
 	/* Check number of strings */
 	if (event->NumStrings > COUNT_OF(string_array)) {
@@ -352,7 +348,32 @@ char * EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * le
 		formatted_string = defmsg;
 	}
 
-	/* Add formatted string */
+	/* replace every space in source by underscores */
+	index = source;
+	while( *index ) {
+		if( *index == ' ' ) {
+			*index = '_';
+		}
+		index++;
+	}
+
+	/* Format source and event ID number */
+	_snprintf_s(message, sizeof(message), _TRUNCATE,
+		"%s: %u: ",
+		source,
+		HRESULT_CODE(event->EventID)
+	);
+
+	/* Convert user */
+	if (event->UserSidLength > 0) {
+		username = GetUsername((SID *) (current + event->UserSidOffset));
+		if (username) {
+			strncat_s(message, sizeof(message), username, _TRUNCATE);
+			strncat_s(message, sizeof(message), ": ", _TRUNCATE);
+		}
+	}
+
+	/* Add formatted string to base message */
 	strncat_s(message, sizeof(message), formatted_string, _TRUNCATE);
 
 	/* Select syslog level */

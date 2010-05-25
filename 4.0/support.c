@@ -14,7 +14,7 @@
 	 Rochester, NY 14623 U.S.A.
 	 
 	Send all comments, suggestions, or bug reports to:
-		seftch@rit.edu
+		sherwin.faria@gmail.com
 */
  
 /*
@@ -81,6 +81,17 @@ void GetError(DWORD err_num, char * message, int len)
 	if (FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err_num, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), message, len, NULL) == 0)
 		_snprintf_s(message, len, _TRUNCATE,
 			"(Error %u)",
+			err_num
+		);
+}
+
+/* WIDE Get error message */
+void GetErrorW(DWORD err_num, WCHAR * message, int len)
+{
+	/* Attempt to get the message text */
+	if (FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err_num, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), message, len, NULL) == 0)
+		_snwprintf_s(message, len, _TRUNCATE,
+			L"(Error %u)",
 			err_num
 		);
 }
@@ -407,6 +418,97 @@ char * CollapseExpandMessage(char * message)
 
 	/* Terminate string */
 	*op = '\0';
+
+	/* Return result */
+	return result;
+}
+
+
+/* WIDE Collapse white space and expand error numbers */
+WCHAR * CollapseExpandMessageW(WCHAR * message)
+{
+	BOOL skip_space = FALSE;
+	DWORD errnum;
+	WCHAR * ip;
+	WCHAR * np;
+	WCHAR * op;
+	WCHAR ch;
+	WCHAR errstr[ERRMSG_SZ];
+
+	static WCHAR result[SYSLOG_SZ];
+
+	/* Initialize */
+	ip = message;
+	op = result;
+	np = NULL;
+
+	/* Loop until buffer is full */
+	while (op - result < COUNT_OF(result)-1) {
+
+		/* Are we at end of input */
+		ch = *ip;
+		if (ch == L'\0') {
+
+			/* Go to next input */
+			ip = np;
+			np = NULL;
+
+			/* Is this end of input */
+			if (ip == NULL)
+				break;
+
+			/* Start again */
+			continue;
+		} else {
+			ip++;
+		}
+
+		/* Convert whitespace to "space" character */
+		if (ch == L'\r' || ch == L'\t' || ch == L'\n')
+			ch = L' ';
+
+		/* Is this a "space" character? */
+		if (ch == L' ') {
+
+			/* Skip if we're skipping spaces */
+			if (skip_space)
+				continue;
+
+			/* Start skipping */
+			skip_space = TRUE;
+		} else {
+			/* Stop skipping */
+			skip_space = FALSE;
+		}
+
+		/* Is this a percent escape? */
+		if (ch == L'%') {
+
+			/* Is the next character another percent? */
+			if (*ip == L'%') {
+
+				/* Advance over percent */
+				ip++;
+
+				/* Convert input to error number */
+				errnum = wcstol(ip, &ip, 10);
+
+				/* Format message */
+				GetErrorW(errnum, errstr, COUNT_OF(errstr));
+
+				/* Push error message as input */
+				np = ip;
+				ip = errstr;
+				continue;
+			}
+		}
+
+		/* Add character to output */
+		*op++ = ch;
+	}
+
+	/* Terminate string */
+	*op = L'\0';
 
 	/* Return result */
 	return result;

@@ -34,13 +34,14 @@
      Rochester, NY 14623 U.S.A.
 
   Send all comments, suggestions, or bug reports to:
-     seftch@rit.edu
+     sherwin.faria@gmail.com
 
 */
 #define TIMEOUT		5000  // 5 seconds: Defines the timeout interval for the EvtNext call
 #define QUERY_SZ	192*sizeof(WCHAR)
 #define ERR_FAIL	-1
 #define RENDER_ITEMS 4
+#define SOURCE_SZ	128
 
 /* Windows Event Levels */
 #define WINEVENT_AUDIT_LEVEL		0
