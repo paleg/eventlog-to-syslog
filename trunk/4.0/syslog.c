@@ -67,6 +67,7 @@ char SyslogLogHostDhcp[SYSLOG_HOST_SZ+1];
 char SyslogConfigFile[MAX_CONFIG_FNAME+1];
 DWORD SyslogPort = SYSLOG_DEF_PORT;
 DWORD SyslogFacility = SYSLOG_DEF_FAC;
+DWORD SyslogStatusInterval = SYSLOG_DEF_INTERVAL;
 DWORD SyslogQueryDhcp = FALSE;
 
 /* Open syslog connection */

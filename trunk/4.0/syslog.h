@@ -138,6 +138,9 @@
 #define SYSLOG_DEF_FAC		SYSLOG_DAEMON
 #define SYSLOG_DEF_FAC_NAME	"daemon"
 
+/* Default status interval */
+#define SYSLOG_DEF_INTERVAL 0
+
 /* Hostname size */
 #define SYSLOG_HOST_SZ		64
 #define MAX_CONFIG_FNAME	128
@@ -150,4 +153,5 @@ extern char SyslogConfigFile[MAX_CONFIG_FNAME+1];
 extern DWORD SyslogPort;
 extern DWORD SyslogPortDhcp;
 extern DWORD SyslogFacility;
+extern DWORD SyslogStatusInterval;
 extern DWORD SyslogQueryDhcp;

@@ -402,7 +402,7 @@ char * EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * le
 		break;
 	}
 	
-	/* Add timestamp to message before returning*/
+	/* Add timestamp to message before returning */
 	strncat_s(tstamped_message, sizeof(tstamped_message), message, _TRUNCATE);
 
 	/* Return formatted message */
@@ -413,15 +413,13 @@ char * EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * le
 int IgnoreSyslogEvent(EventList * ignore_list, const char * E_SOURCE, int E_ID)
 {
 	int i;
-	const char strAll[] = "ALL";
-	int idAll = -10;
 
 	for (i = 0; i < IGNORED_LINES; i++) {
-		/*
-		if(LogInteractive)
-			Log(LOG_SYS,"Checking source=%s ID=%i", ignore_list[i].source, ignore_list[i].id);
-		*/
-		if (E_ID == ignore_list[i].id && !(_strnicmp(E_SOURCE, ignore_list[i].source, strlen(E_SOURCE))))
+		
+		//if(LogInteractive)
+		//	Log(LOG_SYS,"Checking source=%s ID=%i", ignore_list[i].source, ignore_list[i].id);
+		
+		if ((E_ID == ignore_list[i].id || ignore_list[i].wild == TRUE) && !(_strnicmp(E_SOURCE, ignore_list[i].source, strlen(E_SOURCE))))
 			return 1; /* Ignore the Event */
 	}
 

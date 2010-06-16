@@ -133,18 +133,12 @@ int MainLoop()
 			}
 		}
 		
-		/* Modify file every ~2 minutes to let others know that service is functional */
-		if (++stat_counter == 24) {
-			stat_counter = 0; /* Reset Counter */
-
-			if(fopen_s(&fp, "evtsys.stat", "a+") != 0)
-				Log(LOG_ERROR|LOG_SYS, "Status file did not open!!!");
-			else {
-				fprintf_s(fp,"%s - Eventlog to Syslog Service Running\n",GetTimeStamp());
-				if(fclose(fp) != 0)
-					Log(LOG_ERROR|LOG_SYS, "Error closing status file!!!");
+		/* Send status message to inform server that client is active */
+		if (SyslogStatusInterval != 0)
+			if (++stat_counter == SyslogStatusInterval*12) { // Because the service loops ~12 times/min
+				stat_counter = 0; /* Reset Counter */
+				Log(LOG_INFO, "%s- Eventlog to Syslog Service Running",GetTimeStamp());
 			}
-		}
 
 		/* Sleep five seconds */
 		Sleep(5000);

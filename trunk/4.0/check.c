@@ -222,7 +222,14 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, char * filename)
 
 				/* Stop at MAX lines */
 				if (i < MAX_IGNORED_EVENTS) {
-					ignore_list[i].id = atoi(strID); /* Enter id into array */
+					if (strID[0] == '*') {
+						ignore_list[i].wild = TRUE;
+						ignore_list[i].id = 0;
+					}
+					else {
+						ignore_list[i].wild = FALSE;
+						ignore_list[i].id = atoi(strID); /* Enter id into array */
+					}
 					strncpy_s(ignore_list[i].source, sizeof(ignore_list[i].source), strSource, _TRUNCATE); /* Enter source into array */
 
 					//if(LogInteractive)
@@ -252,6 +259,8 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, char * filename)
 		fprintf_s(file, "'must be the only thing on that line.\n'\n");
 		fprintf_s(file, "'Do not combine comments and definitions on the same line!\n'\n");
 		fprintf_s(file, "'Format is as follows - EventSource:EventID\n");
+		fprintf_s(file, "'Use * as a wildcard to ignore all ID's from a given source\n");
+		fprintf_s(file, "'E.g. Security-Auditing:*\n'\n");
 		fprintf_s(file, "'In Vista/2k8 and upwards remove the 'Microsoft-Windows-' prefix\n");
 		fprintf_s(file, "'**********************:**************************");
 
@@ -262,6 +271,26 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, char * filename)
 	return 0;
 }
 
+/* Check Syslog Status Interval */
+int CheckSyslogInterval(char * interval)
+{
+	DWORD minutes;
+
+	/* Convert interval to integer */
+	minutes = atoi(interval);
+
+	/* Check for valid number */
+	if (minutes < 0 || minutes > 0xffff) {
+		Log(LOG_ERROR, "Bad interval: %s \nMust be between 0 and 65,535 minutes", interval);
+		return 1;
+	}
+
+	/* Store new value */
+	SyslogStatusInterval = minutes;
+
+	/* Success */
+	return 0;
+}
 
 /* Check for DHCP flag */
 int CheckSyslogQueryDhcp(char * arg)

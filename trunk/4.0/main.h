@@ -82,6 +82,7 @@ typedef struct EVENT_LIST EventList;
 /* Prototypes */
 int     CheckSyslogFacility(char * facility);
 int     CheckSyslogIgnoreFile(EventList * ignore_list, char * filename);
+int	    CheckSyslogInterval(char * interval);
 int     CheckSyslogLogHost(char * loghost, int ID);
 int     CheckSyslogPort(char * port);
 int     CheckSyslogQueryDhcp(char * value);
