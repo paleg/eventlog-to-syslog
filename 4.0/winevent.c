@@ -298,6 +298,7 @@ WCHAR * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 	int level;
 
 	BOOL reopen = FALSE;
+	BOOL bFilter = FALSE;
 
 	char mbsource[SOURCE_SZ];
 	WCHAR source[SOURCE_SZ];
@@ -414,8 +415,10 @@ WCHAR * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 		WideCharToMultiByte(CP_UTF8, 0, source, -1, mbsource, SOURCE_SZ, NULL, NULL);
 		if (IgnoreSyslogEvent(ignore_list, mbsource, event_id)) {
 			if (LogInteractive)
-				wprintf(L"IGNORING_EVENT: SOURCE=%S & ID=%i\n", mbsource, event_id);
-			goto skip;
+				printf("IGNORING_EVENT: SOURCE=%s & ID=%i\n", mbsource, event_id);
+			bFilter = TRUE;
+		} else {
+			bFilter = FALSE;
 		}
 
 		/* Format Event Timestamp */
@@ -500,10 +503,10 @@ WCHAR * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 		}
 
 		/* Send the event to the Syslog Server */
-		if (SyslogSendW(tstamped_message, level))
-			status = ERR_FAIL;
+		if (!bFilter)
+			if (SyslogSendW(tstamped_message, level))
+				status = ERR_FAIL;
 
-skip:
 		/* Cleanup memory and open handles */
 		if(pwsMessage)
 			free(pwsMessage);

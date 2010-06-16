@@ -77,6 +77,7 @@ static char * ProgramSyslogLogHost = NULL;
 static char * ProgramSyslogLogHost2 = NULL;
 static char * ProgramSyslogPort = NULL;
 static char * ProgramSyslogQueryDhcp = NULL;
+static char * ProgramSyslogInterval = NULL;
 static EventList IgnoredEvents[MAX_IGNORED_EVENTS];
 
 /* Operate on program flags */
@@ -156,7 +157,7 @@ static void mainUsage()
 			"32"
 #endif
 		);
-		fprintf(stderr, "Usage: %s -i|-u|-d [-h host] [-b host] [-f facility] [-p port]\n", ProgramName);
+		fprintf(stderr, "Usage: %s -i|-u|-d [-h host] [-b host] [-f facility] [-p port] [-s minutes]\n", ProgramName);
 		fputs("  -i           Install service\n", stderr);
 		fputs("  -u           Uninstall service\n", stderr);
 		fputs("  -d           Debug: run as console program\n", stderr);
@@ -164,10 +165,13 @@ static void mainUsage()
 		fputs("  -b host      Name of secondary log host\n", stderr);
 		fputs("  -f facility  Facility level of syslog message\n", stderr);
 		fputs("  -p port      Port number of syslogd\n", stderr);
-		fputs("  -q bool      Query the Dhcp server to obtain the syslog/port to log to (0/1 = disable/enable)\n", stderr);
+		fputs("  -q bool      Query the Dhcp server to obtain the syslog/port to log to\n", stderr);
+		fputs("               (0/1 = disable/enable)\n", stderr);
+		fputs("  -s minutes   Optional interval between status messages. 0 = Disabled\n", stderr);
 		fputc('\n', stderr);
 		fprintf(stderr, "Default port: %u\n", SYSLOG_DEF_PORT);
 		fprintf(stderr, "Default facility: %s\n", SYSLOG_DEF_FAC_NAME);
+		fprintf(stderr, "Default status interval: %u\n", SYSLOG_DEF_INTERVAL);
 		fputs("Host (-h) required if installing.\n", stderr);
 	} else
 		Log(LOG_ERROR, "Invalid flag usage; Check startup parameters");
@@ -179,7 +183,7 @@ static int mainProcessFlags(int argc, char ** argv)
 	int flag;
 
 	/* Note all actions */
-	while ((flag = GetOpt(argc, argv, "f:iudh:b:p:q:")) != EOF) {
+	while ((flag = GetOpt(argc, argv, "f:iudh:b:p:q:s:")) != EOF) {
 		switch (flag) {
 		case 'd':
 			ProgramDebug = TRUE;
@@ -201,6 +205,9 @@ static int mainProcessFlags(int argc, char ** argv)
 			break;
 		case 'q':
 			ProgramSyslogQueryDhcp = GetOptArg;
+			break;
+		case 's':
+			ProgramSyslogInterval = GetOptArg;
 			break;
 		case 'u':
 			ProgramUninstall = TRUE;
@@ -250,6 +257,10 @@ static int mainProcessFlags(int argc, char ** argv)
 	}
 	if (ProgramSyslogPort) {
 		if (CheckSyslogPort(ProgramSyslogPort))
+			return 1;
+	}
+	if (ProgramSyslogInterval) {
+		if (CheckSyslogInterval(ProgramSyslogInterval))
 			return 1;
 	}
 	if (ProgramSyslogQueryDhcp) {
