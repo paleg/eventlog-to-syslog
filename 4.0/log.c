@@ -172,19 +172,20 @@ void Log(int level, char * message, ...)
 		break;
 	}
 
-	/* Create Timestamp and add to error_message along with hostname */
-	/* This maintains consistency with regular non-error packets */
-	strncpy_s(tstamped_message, sizeof(tstamped_message), GetTimeStamp(), _TRUNCATE);
-
 	/* Add hostname for RFC compliance (RFC 3164) */
-	if (ExpandEnvironmentStrings("%COMPUTERNAME% ", hostname, sizeof(hostname)) == 0) {
-		strcpy_s(hostname, COUNT_OF(hostname), "HOSTNAME_ERR ");
+	if (ExpandEnvironmentStrings("%COMPUTERNAME%", hostname, sizeof(hostname)) == 0) {
+		strcpy_s(hostname, COUNT_OF(hostname), "HOSTNAME_ERR");
 		Log(LOG_ERROR|LOG_SYS, "Cannot expand %COMPUTERNAME%");
 	}
-	strncat_s(tstamped_message, sizeof(tstamped_message), hostname, _TRUNCATE);
 
-	/* Add error_message to the string */
-	strncat_s(tstamped_message, sizeof(tstamped_message), error_message, _TRUNCATE);
+	/* Create Timestamp and add to error_message along with hostname */
+	/* This maintains consistency with regular non-error packets */
+	_snprintf_s(tstamped_message, sizeof(tstamped_message), _TRUNCATE,
+		"%s %s %s",
+		GetTimeStamp(),
+		hostname,
+		error_message
+	);
 
 	/* Send to syslog if network running */
 	if (WSockSocket == INVALID_SOCKET || SyslogSend(tstamped_message, syslog_level))

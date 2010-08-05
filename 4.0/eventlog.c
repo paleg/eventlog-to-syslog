@@ -299,19 +299,6 @@ char * EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * le
 		return "Skip!!!";
 	}
 	
-	/* Query and format timestamp from EventLog */
-	strncpy_s(tstamped_message, sizeof(tstamped_message), TimeToString(event->TimeGenerated), _TRUNCATE);
-	
-	/* Add hostname for RFC compliance (RFC 3164) */
-	if (ExpandEnvironmentStrings(" %COMPUTERNAME% ", hostname, COUNT_OF(hostname)) == 0) {
-		strcpy_s(hostname, COUNT_OF(hostname), " HOSTNAME_ERR ");
-		Log(LOG_ERROR|LOG_SYS, "Cannot expand %COMPUTERNAME%");
-	}
-	strncat_s(tstamped_message, sizeof(tstamped_message), hostname, _TRUNCATE);
-	
-	if (hostname)
-		free(hostname);
-
 	/* Check number of strings */
 	if (event->NumStrings > COUNT_OF(string_array)) {
 
@@ -402,8 +389,20 @@ char * EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * le
 		break;
 	}
 	
-	/* Add timestamp to message before returning */
-	strncat_s(tstamped_message, sizeof(tstamped_message), message, _TRUNCATE);
+	/* Add hostname for RFC compliance (RFC 3164) */
+	if (ExpandEnvironmentStrings("%COMPUTERNAME%", hostname, COUNT_OF(hostname)) == 0) {
+		strcpy_s(hostname, COUNT_OF(hostname), "HOSTNAME_ERR");
+		Log(LOG_ERROR|LOG_SYS, "Cannot expand %COMPUTERNAME%");
+	}
+	
+	/* Query and Add timestamp from EventLog, add hostname, */
+	/* and finally the message to the string */
+	_snprintf_s(tstamped_message, sizeof(tstamped_message), _TRUNCATE,
+		"%s %s %s",
+		TimeToString(event->TimeGenerated),
+		hostname,
+		message
+	);
 
 	/* Return formatted message */
 	return tstamped_message;
@@ -432,20 +431,20 @@ char * TimeToString(DWORD dw)
 {
 	time_t tt;
 	struct tm stm;
-	char result[17];
-	static char * formatted_result = "Mmm dd hh:mm:ss ";
+	char result[16];
+	static char * formatted_result = "Mmm dd hh:mm:ss";
 
 	tt = (time_t) dw;
 	
 	/* Format timestamp string */
 	if (localtime_s(&stm, &tt) == 0) {
-		strftime(result, sizeof(result), "%b %d %H:%M:%S ", &stm);
+		strftime(result, sizeof(result), "%b %d %H:%M:%S", &stm);
 		if (result[4] == '0') /* Replace leading zero with a space for */
 			result[4] = ' ';  /* single digit days so we comply with the RFC */
 	} else
 		result[0] = '\0';
 
-	strncpy_s(formatted_result, sizeof("Mmm dd hh:mm:ss "), result, _TRUNCATE);
+	strncpy_s(formatted_result, sizeof(result), result, _TRUNCATE);
 	
 	return formatted_result;
 }
