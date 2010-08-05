@@ -137,7 +137,7 @@ int MainLoop()
 		if (SyslogStatusInterval != 0)
 			if (++stat_counter == SyslogStatusInterval*12) { // Because the service loops ~12 times/min
 				stat_counter = 0; /* Reset Counter */
-				Log(LOG_INFO, "%s- Eventlog to Syslog Service Running",GetTimeStamp());
+				Log(LOG_INFO, "%s - Eventlog to Syslog Service Running",GetTimeStamp());
 			}
 
 		/* Sleep five seconds */
