@@ -201,6 +201,7 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, char * filename)
 		char line[100];
 		char strDelim[] = ":";
 		char strComment[] = "'";
+		char strIncludeOnly[] = "#INCLUDE_ONLY";
 		char *strID,
 			 *strSource,
 			 *next_token;
@@ -212,6 +213,12 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, char * filename)
 				comments++;
 			}
 			else {
+				if (strncmp(line, strIncludeOnly, strlen(strIncludeOnly)) == 0)
+				{
+					IncludeOnly = true;
+					continue;
+				}
+
 				strSource = strtok_s(line, strDelim, &next_token);
 				strID = strtok_s(NULL, strDelim, &next_token);
 				if (strSource == NULL || strID == NULL) {
@@ -265,6 +272,13 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, char * filename)
 		fprintf_s(file, "'**********************:**************************");
 
 		fclose (file);
+	}
+
+	/* Can't run as IncludeOnly with no results set to include */
+	if (IncludeOnly && IGNORED_LINES == 0)
+	{
+		Log(LOG_ERROR,"You cannot set the %s flag and not specify any events to include!",strIncludeOnly);
+		return -1;
 	}
 
 	/* Success */

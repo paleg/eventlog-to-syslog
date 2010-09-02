@@ -419,7 +419,8 @@ int IgnoreSyslogEvent(EventList * ignore_list, const char * E_SOURCE, int E_ID)
 		//	Log(LOG_SYS,"Checking source=%s ID=%i", ignore_list[i].source, ignore_list[i].id);
 		
 		if ((E_ID == ignore_list[i].id || ignore_list[i].wild == TRUE) && !(_strnicmp(E_SOURCE, ignore_list[i].source, strlen(E_SOURCE))))
-			return 1; /* Ignore the Event */
+			if (!IgnoreOnly) /* Only ignore if we are not running the ignore file as include only */
+				return 1; /* Ignore the Event */
 	}
 
 	/* Log the Event */
