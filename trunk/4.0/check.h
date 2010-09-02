@@ -58,7 +58,7 @@
 extern int IGNORED_LINES;
 
 /* Ignored Events Structure */
-struct EVENT_LIST {
+struct EventList {
 	char source[50];
 	BOOL wild;
 	int id;

@@ -77,7 +77,8 @@ int MainLoop()
 	FILE *fp = NULL;
 
 	/* Grab Ignore List From File */
-	CheckSyslogIgnoreFile(IgnoredEvents, CONFIG_FILE);
+	if (CheckSyslogIgnoreFile(IgnoredEvents, CONFIG_FILE) < 0)
+		return 1;
 
 	/* Check if the new Windows Events Service is in use */
 	/* If so we will use the new API's to sift through events */

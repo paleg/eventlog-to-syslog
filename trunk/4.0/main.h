@@ -65,8 +65,6 @@
 #include <string.h>
 #include <time.h>
 
-typedef struct EVENT_LIST EventList;
-
 /* Macros */
 #define COUNT_OF(x)	(sizeof(x)/sizeof(*x))
 

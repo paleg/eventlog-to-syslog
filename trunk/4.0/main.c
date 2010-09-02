@@ -71,6 +71,7 @@
 static BOOL ProgramDebug = FALSE;
 static BOOL ProgramInstall = FALSE;
 static BOOL ProgramUninstall = FALSE;
+static BOOL IncludeOnly = FALSE;
 static char * ProgramName;
 static char * ProgramSyslogFacility = NULL;
 static char * ProgramSyslogLogHost = NULL;
