@@ -71,7 +71,7 @@
 static BOOL ProgramDebug = FALSE;
 static BOOL ProgramInstall = FALSE;
 static BOOL ProgramUninstall = FALSE;
-static BOOL IncludeOnly = FALSE;
+static BOOL ProgramIncludeOnly = FALSE;
 static char * ProgramName;
 static char * ProgramSyslogFacility = NULL;
 static char * ProgramSyslogLogHost = NULL;
@@ -79,6 +79,7 @@ static char * ProgramSyslogLogHost2 = NULL;
 static char * ProgramSyslogPort = NULL;
 static char * ProgramSyslogQueryDhcp = NULL;
 static char * ProgramSyslogInterval = NULL;
+static char * ProgramLogLevel = NULL;
 static EventList IgnoredEvents[MAX_IGNORED_EVENTS];
 
 /* Operate on program flags */
@@ -120,6 +121,9 @@ static int mainOperateFlags()
 	if (RegistryRead())
 		return 1;
 
+	/* Check for new Crimson Log Service */
+	CheckForWindowsEvents();
+
 	/* query the dhcp if enabled */
 	if( SyslogQueryDhcp && !DHCPQuery() ) {
 		SyslogOpen(3);
@@ -158,13 +162,17 @@ static void mainUsage()
 			"32"
 #endif
 		);
-		fprintf(stderr, "Usage: %s -i|-u|-d [-h host] [-b host] [-f facility] [-p port] [-s minutes]\n", ProgramName);
+		fprintf(stderr, "Usage: %s -i|-u|-d [-h host] [-b host] [-f facility] [-p port]\n", ProgramName);
+		fputs("       [-s minutes] [-l level] [-n]\n", stderr);
 		fputs("  -i           Install service\n", stderr);
 		fputs("  -u           Uninstall service\n", stderr);
 		fputs("  -d           Debug: run as console program\n", stderr);
 		fputs("  -h host      Name of log host\n", stderr);
 		fputs("  -b host      Name of secondary log host\n", stderr);
 		fputs("  -f facility  Facility level of syslog message\n", stderr);
+		fputs("  -l level     Minimum level to send to syslog.\n", stderr);
+		fputs("               0=All/Verbose, 1 = Critical, 2 = Error, 3 = Warning, 4 = Info\n", stderr);
+		fputs("  -n           Include only those events specified in the config file.\n", stderr);
 		fputs("  -p port      Port number of syslogd\n", stderr);
 		fputs("  -q bool      Query the Dhcp server to obtain the syslog/port to log to\n", stderr);
 		fputs("               (0/1 = disable/enable)\n", stderr);
@@ -184,38 +192,44 @@ static int mainProcessFlags(int argc, char ** argv)
 	int flag;
 
 	/* Note all actions */
-	while ((flag = GetOpt(argc, argv, "f:iudh:b:p:q:s:")) != EOF) {
+	while ((flag = GetOpt(argc, argv, "f:iudh:b:p:q:s:l:n")) != EOF) {
 		switch (flag) {
-		case 'd':
-			ProgramDebug = TRUE;
-			break;
-		case 'f':
-			ProgramSyslogFacility = GetOptArg;
-			break;
-		case 'h':
-			ProgramSyslogLogHost = GetOptArg;
-			break;
-		case 'b':
-			ProgramSyslogLogHost2 = GetOptArg;
-			break;
-		case 'i':
-			ProgramInstall = TRUE;
-			break;
-		case 'p':
-			ProgramSyslogPort = GetOptArg;
-			break;
-		case 'q':
-			ProgramSyslogQueryDhcp = GetOptArg;
-			break;
-		case 's':
-			ProgramSyslogInterval = GetOptArg;
-			break;
-		case 'u':
-			ProgramUninstall = TRUE;
-			break;
-		default:
-			mainUsage();
-			return 1;
+			case 'd':
+				ProgramDebug = TRUE;
+				break;
+			case 'f':
+				ProgramSyslogFacility = GetOptArg;
+				break;
+			case 'h':
+				ProgramSyslogLogHost = GetOptArg;
+				break;
+			case 'b':
+				ProgramSyslogLogHost2 = GetOptArg;
+				break;
+			case 'i':
+				ProgramInstall = TRUE;
+				break;
+			case 'p':
+				ProgramSyslogPort = GetOptArg;
+				break;
+			case 'q':
+				ProgramSyslogQueryDhcp = GetOptArg;
+				break;
+			case 's':
+				ProgramSyslogInterval = GetOptArg;
+				break;
+			case 'u':
+				ProgramUninstall = TRUE;
+				break;
+			case 'l':
+				ProgramLogLevel = GetOptArg;
+				break;
+			case 'n':
+				ProgramIncludeOnly = TRUE;
+				break;
+			default:
+				mainUsage();
+				return 1;
 		}
 	}
 	argc -= GetOptInd;
@@ -268,6 +282,12 @@ static int mainProcessFlags(int argc, char ** argv)
 		if (CheckSyslogQueryDhcp(ProgramSyslogQueryDhcp))
 			return 1;
 	}
+	if (ProgramLogLevel) {
+		if (CheckSyslogLogLevel(ProgramLogLevel))
+			return 1;
+	}
+	if (ProgramIncludeOnly)
+		CheckSyslogIncludeOnly();
 
 	/* Check for Ignore File */
 	if(LogInteractive)

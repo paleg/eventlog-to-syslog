@@ -54,11 +54,16 @@
 
 */
 
-/* Global Variables */
+/* CONSTANTS */
+#define MIN_LOG_LEVEL 0
+#define MAX_LOG_LEVEL 3
+
+/* External Variables */
 extern int IGNORED_LINES;
+extern BOOL winEvents;
 
 /* Ignored Events Structure */
-struct EventList {
+struct EVENT_LIST {
 	char source[50];
 	BOOL wild;
 	int id;

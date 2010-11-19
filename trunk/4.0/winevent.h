@@ -40,7 +40,6 @@
 #define TIMEOUT		5000  // 5 seconds: Defines the timeout interval for the EvtNext call
 #define QUERY_SZ	192*sizeof(WCHAR)
 #define ERR_FAIL	-1
-#define RENDER_ITEMS 4
 #define SOURCE_SZ	128
 
 /* Windows Event Levels */

@@ -65,6 +65,8 @@
 #include <string.h>
 #include <time.h>
 
+typedef struct EVENT_LIST EventList;
+
 /* Macros */
 #define COUNT_OF(x)	(sizeof(x)/sizeof(*x))
 
@@ -78,12 +80,15 @@
 #define in_addr_t	unsigned long
 
 /* Prototypes */
+void    CheckForWindowsEvents();
 int     CheckSyslogFacility(char * facility);
 int     CheckSyslogIgnoreFile(EventList * ignore_list, char * filename);
 int	    CheckSyslogInterval(char * interval);
 int     CheckSyslogLogHost(char * loghost, int ID);
 int     CheckSyslogPort(char * port);
 int     CheckSyslogQueryDhcp(char * value);
+int     CheckSyslogLogLevel(char * level);
+int     CheckSyslogIncludeOnly();
 char*   CollapseExpandMessage(char * message);
 WCHAR*  CollapseExpandMessageW(WCHAR * message);
 int     EventlogCreate(char * name);
@@ -97,7 +102,7 @@ int     GetOpt(int nargc, char ** nargv, char * ostr);
 char*   GetTimeStamp(void);
 char*   GetUsername(SID * sid);
 char*   GetWinEvent(char * log, int recNum, int event_id);
-int     IgnoreSyslogEvent(EventList * ignore_list, const char * E_SOURCE, int E_ID);
+BOOL    IgnoreSyslogEvent(EventList * ignore_list, const char * E_SOURCE, int E_ID);
 int     LogStart(void);
 void    LogStop(void);
 void    Log(int level, char * message, ...);

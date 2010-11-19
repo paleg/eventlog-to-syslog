@@ -191,6 +191,7 @@ char * EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * le
 	BOOL reopen = FALSE;
 	DWORD errnum;
 	DWORD needed;
+	DWORD loglevel;
 	EVENTLOGRECORD * event;
 	char * cp;
 	char * current;
@@ -365,30 +366,40 @@ char * EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * le
 
 	/* Select syslog level */
 	switch (event->EventType) {
+		case EVENTLOG_ERROR_TYPE:
+			loglevel = SYSLOG_ERR;
+			*level = SYSLOG_BUILD(SyslogFacility, loglevel);
+			break;
+		case EVENTLOG_WARNING_TYPE:
+			loglevel = SYSLOG_WARNING;
+			*level = SYSLOG_BUILD(SyslogFacility, loglevel);
+			break;
+		case EVENTLOG_INFORMATION_TYPE:
+			loglevel = SYSLOG_NOTICE;
+			*level = SYSLOG_BUILD(SyslogFacility, loglevel);
+			break;
+		case EVENTLOG_AUDIT_SUCCESS:
+			loglevel = SYSLOG_NOTICE;
+			*level = SYSLOG_BUILD(SyslogFacility, loglevel);
+			break;
+		case EVENTLOG_AUDIT_FAILURE:
+			loglevel = SYSLOG_ERR;
+			*level = SYSLOG_BUILD(SyslogFacility, loglevel);
+			break;
 
-	case EVENTLOG_ERROR_TYPE:
-		*level = SYSLOG_BUILD(SyslogFacility, SYSLOG_ERR);
-		break;
-	case EVENTLOG_WARNING_TYPE:
-		*level = SYSLOG_BUILD(SyslogFacility, SYSLOG_WARNING);
-		break;
-	case EVENTLOG_INFORMATION_TYPE:
-		*level = SYSLOG_BUILD(SyslogFacility, SYSLOG_NOTICE);
-		break;
-	case EVENTLOG_AUDIT_SUCCESS:
-		*level = SYSLOG_BUILD(SyslogFacility, SYSLOG_NOTICE);
-		break;
-	case EVENTLOG_AUDIT_FAILURE:
-		*level = SYSLOG_BUILD(SyslogFacility, SYSLOG_ERR);
-		break;
-
-	/* Everything else */
-	case EVENTLOG_SUCCESS:
-	default:
-		*level = SYSLOG_BUILD(SyslogFacility, SYSLOG_NOTICE);
-		break;
+		/* Everything else */
+		case EVENTLOG_SUCCESS:
+		default:
+			loglevel = SYSLOG_NOTICE;
+			*level = SYSLOG_BUILD(SyslogFacility, loglevel);
+			break;
 	}
-	
+
+	/* If event is not being ignored, make sure it is severe enough to be logged */
+	if (SyslogLogLevel != 0)
+		if (SyslogLogLevel < loglevel-1)
+			return "Skip!!!";
+
 	/* Add hostname for RFC compliance (RFC 3164) */
 	if (ExpandEnvironmentStrings("%COMPUTERNAME%", hostname, COUNT_OF(hostname)) == 0) {
 		strcpy_s(hostname, COUNT_OF(hostname), "HOSTNAME_ERR");
@@ -406,25 +417,6 @@ char * EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * le
 
 	/* Return formatted message */
 	return tstamped_message;
-}
-
-/* Check Event Against Ignore List */
-int IgnoreSyslogEvent(EventList * ignore_list, const char * E_SOURCE, int E_ID)
-{
-	int i;
-
-	for (i = 0; i < IGNORED_LINES; i++) {
-		
-		//if(LogInteractive)
-		//	Log(LOG_SYS,"Checking source=%s ID=%i", ignore_list[i].source, ignore_list[i].id);
-		
-		if ((E_ID == ignore_list[i].id || ignore_list[i].wild == TRUE) && !(_strnicmp(E_SOURCE, ignore_list[i].source, strlen(E_SOURCE))))
-			if (!IgnoreOnly) /* Only ignore if we are not running the ignore file as include only */
-				return 1; /* Ignore the Event */
-	}
-
-	/* Log the Event */
-	return 0;
 }
 
 /* Format Timestamp from EventLog */

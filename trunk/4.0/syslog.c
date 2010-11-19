@@ -69,6 +69,8 @@ DWORD SyslogPort = SYSLOG_DEF_PORT;
 DWORD SyslogFacility = SYSLOG_DEF_FAC;
 DWORD SyslogStatusInterval = SYSLOG_DEF_INTERVAL;
 DWORD SyslogQueryDhcp = FALSE;
+DWORD SyslogLogLevel = SYSLOG_DEF_LogLevel;
+DWORD SyslogIncludeOnly = FALSE;
 
 /* Open syslog connection */
 int SyslogOpen(int ID)

@@ -80,16 +80,6 @@ int MainLoop()
 	if (CheckSyslogIgnoreFile(IgnoredEvents, CONFIG_FILE) < 0)
 		return 1;
 
-	/* Check if the new Windows Events Service is in use */
-	/* If so we will use the new API's to sift through events */
-	if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Channels\\ForwardedEvents", 0, KEY_READ, &hkey) != ERROR_SUCCESS)
-		winEvents = FALSE;
-	else
-		winEvents = TRUE;
-		
-	if (hkey)
-		RegCloseKey(hkey);
-
 	/* Gather eventlog names */
 	if (RegistryGather(winEvents))
 		return 1;

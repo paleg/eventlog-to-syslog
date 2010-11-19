@@ -141,6 +141,9 @@
 /* Default status interval */
 #define SYSLOG_DEF_INTERVAL 0
 
+/* Default minimum logging level */
+#define SYSLOG_DEF_LogLevel 0
+
 /* Hostname size */
 #define SYSLOG_HOST_SZ		64
 #define MAX_CONFIG_FNAME	128
@@ -155,3 +158,5 @@ extern DWORD SyslogPortDhcp;
 extern DWORD SyslogFacility;
 extern DWORD SyslogStatusInterval;
 extern DWORD SyslogQueryDhcp;
+extern DWORD SyslogLogLevel;
+extern DWORD SyslogIncludeOnly;
