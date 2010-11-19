@@ -41,6 +41,7 @@
 #include <malloc.h>
 #include <wchar.h>
 #include <winevt.h>
+#include <winmeta.h>
 #include "log.h"
 #include "service.h"
 #include "syslog.h"
@@ -71,10 +72,11 @@ PEVT_VARIANT GetEventInfo(EVT_HANDLE hEvent)
 	LPWSTR ppValues[] = {L"Event/System/Provider/@Name",
 						 L"Event/System/TimeCreated/@SystemTime",
 						 L"Event/System/EventID",
-						 L"Event/System/Level"};
-    DWORD count = sizeof(ppValues)/sizeof(LPWSTR);
+						 L"Event/System/Level",
+						 L"Event/System/Keywords"};
+    DWORD count = COUNT_OF(ppValues);
     DWORD dwReturned = 0;
-	DWORD dwBufferSize = (256*sizeof(WCHAR)*RENDER_ITEMS);
+	DWORD dwBufferSize = (256*sizeof(LPWSTR)*count);
 	DWORD dwValuesCount = 0;
 	DWORD status = 0;
 
@@ -294,8 +296,10 @@ WCHAR * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
     LPWSTR pwszPublisherName = NULL;
 	LPWSTR pwsQuery = NULL;
 	ULONGLONG eventTime;
+	ULONGLONG keyword;
 	int event_id = 0;
-	int level;
+	int winlevel = 0;
+	int level = 0;
 
 	BOOL reopen = FALSE;
 	BOOL bFilter = FALSE;
@@ -312,7 +316,13 @@ WCHAR * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 	pwsQuery = (LPWSTR)malloc(QUERY_SZ);
 
 	/* Create the query to pull the specified event */
-	swprintf_s(pwsQuery, QUERY_SZ/sizeof(WCHAR), L"<QueryList><Query Path='%s'><Select>*[System[EventRecordID >= %i]]</Select></Query></QueryList>", WinEventlogList[log].name, WinEventlogList[log].recnum);
+	swprintf_s(
+		pwsQuery,
+		QUERY_SZ/sizeof(WCHAR),
+		L"<QueryList><Query Path='%s'><Select>*[System[EventRecordID >= %i]]</Select></Query></QueryList>",
+		WinEventlogList[log].name,
+		WinEventlogList[log].recnum
+	);
 
 	do {
 		hResult = WinEventQuery(pwsQuery);
@@ -385,8 +395,14 @@ WCHAR * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 				reopen = FALSE;
 				break;
 			} else if (status != ERROR_SUCCESS) {
-				if (status != ERROR_TIMEOUT || LogInteractive)
-					Log(LOG_ERROR|LOG_SYS, "EvtNext: Error getting event from Log: '%S' with RecordID: %i", WinEventlogList[log].name, WinEventlogList[log].recnum);
+				if (status == ERROR_TIMEOUT && LogInteractive)
+					Log(LOG_INFO, "EvtNext: Timed out trying to get event from Log'%S' with RecordID: %i. Trying again",
+						WinEventlogList[log].name, WinEventlogList[log].recnum
+					); 
+				else
+					Log(LOG_ERROR|LOG_SYS, "EvtNext: Error getting event from Log: '%S' with RecordID: %i",
+						WinEventlogList[log].name, WinEventlogList[log].recnum
+					);
 				continue;
 			}
 		}
@@ -474,38 +490,49 @@ WCHAR * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 		/* Combine the message strings */
 		wcsncat_s(tstamped_message, COUNT_OF(tstamped_message), formatted_string, _TRUNCATE);
 
+		/* Get Event Error Level. In the case of Security Events,
+		 * set Failures to Error instead of notice using the
+		 * keyword attribute
+		 */
+		keyword = (EvtVarTypeNull == eventInfo[4].Type) ? 0 : eventInfo[4].UInt64Val;
+		if ((keyword & WINEVENT_KEYWORD_AUDIT_FAILURE) != 0)
+			winlevel = WINEVENT_ERROR_LEVEL;
+		else
+			winlevel = (int)eventInfo[3].ByteVal;
+
 		/* Select syslog level */
-		switch ((int)eventInfo[3].ByteVal) {
+		switch (winlevel) {
+			case WINEVENT_CRITICAL_LEVEL:
+				level = SYSLOG_BUILD(SyslogFacility, SYSLOG_CRIT);
+				break;		
+			case WINEVENT_ERROR_LEVEL:
+				level = SYSLOG_BUILD(SyslogFacility, SYSLOG_ERR);
+				break;
+			case WINEVENT_WARNING_LEVEL:
+				level = SYSLOG_BUILD(SyslogFacility, SYSLOG_WARNING);
+				break;
+			case WINEVENT_INFORMATION_LEVEL:
+				level = SYSLOG_BUILD(SyslogFacility, SYSLOG_NOTICE);
+				break;
+			case WINEVENT_AUDIT_LEVEL:
+				level = SYSLOG_BUILD(SyslogFacility, SYSLOG_NOTICE);
+				break;
+			case WINEVENT_VERBOSE_LEVEL:
+				level = SYSLOG_BUILD(SyslogFacility, SYSLOG_DEBUG);
+				break;
 
-		case WINEVENT_CRITICAL_LEVEL:
-			level = SYSLOG_BUILD(SyslogFacility, SYSLOG_CRIT);
-			break;		
-		case WINEVENT_ERROR_LEVEL:
-			level = SYSLOG_BUILD(SyslogFacility, SYSLOG_ERR);
-			break;
-		case WINEVENT_WARNING_LEVEL:
-			level = SYSLOG_BUILD(SyslogFacility, SYSLOG_WARNING);
-			break;
-		case WINEVENT_INFORMATION_LEVEL:
-			level = SYSLOG_BUILD(SyslogFacility, SYSLOG_NOTICE);
-			break;
-		case WINEVENT_AUDIT_LEVEL:
-			level = SYSLOG_BUILD(SyslogFacility, SYSLOG_NOTICE);
-			break;
-		case WINEVENT_VERBOSE_LEVEL:
-			level = SYSLOG_BUILD(SyslogFacility, SYSLOG_DEBUG);
-			break;
-
-		/* Everything else */
-		default:
-			level = SYSLOG_BUILD(SyslogFacility, SYSLOG_NOTICE);
-			break;
+			/* Everything else */
+			default:
+				level = SYSLOG_BUILD(SyslogFacility, SYSLOG_NOTICE);
+				break;
 		}
 
 		/* Send the event to the Syslog Server */
+		/* If event is not being ignored, make sure it is severe enough to be logged */
 		if (!bFilter)
-			if (SyslogSendW(tstamped_message, level))
-				status = ERR_FAIL;
+			if (SyslogLogLevel == 0 || (SyslogLogLevel >= (DWORD)winlevel && winlevel > 0))
+				if (SyslogSendW(tstamped_message, level))
+					status = ERR_FAIL;
 
 		/* Cleanup memory and open handles */
 		if(pwsMessage)

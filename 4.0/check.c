@@ -61,6 +61,7 @@
 #include "check.h"
 
 int IGNORED_LINES;
+BOOL winEvents;
 
 /* Facility conversion table */
 static struct {
@@ -89,6 +90,27 @@ static struct {
 	{ "user", SYSLOG_USER },
 	{ "uucp", SYSLOG_UUCP }
 };
+
+/* Check the minimum log level */
+int CheckSyslogLogLevel(char * level)
+{
+	DWORD LogLevel;
+
+	/* Convert interval to integer */
+	LogLevel = atoi(level);
+
+	/* Check for valid number */
+	if (LogLevel < MIN_LOG_LEVEL || LogLevel > MAX_LOG_LEVEL) {
+		Log(LOG_ERROR, "Bad level: %s \nMust be between %i and %i", level, MIN_LOG_LEVEL, MAX_LOG_LEVEL);
+		return 1;
+	}
+
+	/* Store new value */
+	SyslogLogLevel = LogLevel;
+
+	/* Success */
+	return 0;
+}
 
 /* Check facility name */
 int CheckSyslogFacility(char * facility)
@@ -201,7 +223,6 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, char * filename)
 		char line[100];
 		char strDelim[] = ":";
 		char strComment[] = "'";
-		char strIncludeOnly[] = "#INCLUDE_ONLY";
 		char *strID,
 			 *strSource,
 			 *next_token;
@@ -213,12 +234,6 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, char * filename)
 				comments++;
 			}
 			else {
-				if (strncmp(line, strIncludeOnly, strlen(strIncludeOnly)) == 0)
-				{
-					IncludeOnly = true;
-					continue;
-				}
-
 				strSource = strtok_s(line, strDelim, &next_token);
 				strID = strtok_s(NULL, strDelim, &next_token);
 				if (strSource == NULL || strID == NULL) {
@@ -237,7 +252,8 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, char * filename)
 						ignore_list[i].wild = FALSE;
 						ignore_list[i].id = atoi(strID); /* Enter id into array */
 					}
-					strncpy_s(ignore_list[i].source, sizeof(ignore_list[i].source), strSource, _TRUNCATE); /* Enter source into array */
+					/* Enter source into array */
+					strncpy_s(ignore_list[i].source, sizeof(ignore_list[i].source), strSource, _TRUNCATE);
 
 					//if(LogInteractive)
 						//printf("IgnoredEvents[%i].id=%i \tIgnoredEvents[%i].source=%s\n",i,ignore_list[i].id,i,ignore_list[i].source);
@@ -275,9 +291,9 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, char * filename)
 	}
 
 	/* Can't run as IncludeOnly with no results set to include */
-	if (IncludeOnly && IGNORED_LINES == 0)
+	if (SyslogIncludeOnly && IGNORED_LINES == 0)
 	{
-		Log(LOG_ERROR,"You cannot set the %s flag and not specify any events to include!",strIncludeOnly);
+		Log(LOG_ERROR,"You cannot set the IncludeOnly flag and not specify any events to include!");
 		return -1;
 	}
 
@@ -325,4 +341,35 @@ int CheckSyslogQueryDhcp(char * arg)
 
 	/* Success */
 	return 0;
+}
+
+/* Check for IncludeOnly flag */
+int CheckSyslogIncludeOnly()
+{
+	/* Store new value */
+	SyslogIncludeOnly = TRUE;
+
+	/* Success */
+	return 0;
+}
+
+/* Check for new Crimson Log Service */
+void CheckForWindowsEvents()
+{
+	HKEY hkey = NULL;
+
+	/* Check if the new Windows Events Service is in use */
+	/* If so we will use the new API's to sift through events */
+	if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Channels\\ForwardedEvents", 0, KEY_READ, &hkey) != ERROR_SUCCESS)
+		winEvents = FALSE;
+	else
+		winEvents = TRUE;
+		
+	if (hkey)
+		RegCloseKey(hkey);
+
+	/* A level of 1 (Critical) is not valid in this process prior
+	 * to the new Windows Events. Set level to 2 (Error) */
+	if (winEvents == FALSE && SyslogLogLevel == 1)
+		SyslogLogLevel = 2;
 }

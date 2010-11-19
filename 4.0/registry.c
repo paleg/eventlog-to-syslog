@@ -82,7 +82,9 @@ static struct RegistryData RegistryApplicationDataList[] = {
 	{ "LogHost2", REG_SZ, &SyslogLogHost2, sizeof(SyslogLogHost2), FALSE },
 	{ "Port", REG_DWORD, &SyslogPort, sizeof(SyslogPort), TRUE },
 	{ "StatusInterval", REG_DWORD, &SyslogStatusInterval, sizeof(SyslogStatusInterval), FALSE },
-	{ "QueryDhcp", REG_DWORD, &SyslogQueryDhcp, sizeof(SyslogQueryDhcp), FALSE }
+	{ "QueryDhcp", REG_DWORD, &SyslogQueryDhcp, sizeof(SyslogQueryDhcp), FALSE },
+	{ "LogLevel", REG_DWORD, &SyslogLogLevel, sizeof(SyslogLogLevel), FALSE },
+	{ "IncludeOnly", REG_DWORD, &SyslogIncludeOnly, sizeof(SyslogIncludeOnly), FALSE }
 };
 
 /* Location of eventlog data in registry tree */

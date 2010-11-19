@@ -56,6 +56,7 @@
 
 /* Include files */
 #include "main.h"
+#include "check.h"
 #include "log.h"
 #include "syslog.h"
 
@@ -173,6 +174,30 @@ char * GetUsername(SID * sid)
 
 	/* Result result */
 	return result;
+}
+
+/* Check Event Against Ignore List */
+BOOL IgnoreSyslogEvent(EventList * ignore_list, const char * E_SOURCE, int E_ID)
+{
+	int i;
+	BOOL inList = FALSE;
+	BOOL ignoreEvent = FALSE;
+
+	for (i = 0; i < IGNORED_LINES; i++) {
+		
+		//if(LogInteractive)
+		//	Log(LOG_SYS,"Checking source=%s ID=%i", ignore_list[i].source, ignore_list[i].id);
+		
+		if ((E_ID == ignore_list[i].id || ignore_list[i].wild == TRUE) &&
+		   !(_strnicmp(E_SOURCE, ignore_list[i].source, strlen(E_SOURCE))))
+			inList = TRUE; /* Event is in the list */
+	}
+
+	/* Only ignore if we are not running the ignore file as include only */
+	ignoreEvent = (inList != SyslogIncludeOnly);
+
+	/* Return Result */
+	return ignoreEvent;
 }
 
 /* Look up message file key */
