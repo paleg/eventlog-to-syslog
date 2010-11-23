@@ -100,6 +100,11 @@ int MainLoop()
 		"32"
 #endif
 	);
+	Log(LOG_INFO, "Flags: LogLevel=%u, IncludeOnly=%s, StatusInterval=%u",
+		SyslogLogLevel,
+		SyslogIncludeOnly == 0 ? "False" : "True",
+		SyslogStatusInterval
+	);
 
 	/* Loop while service is running */
 	do {
@@ -128,7 +133,7 @@ int MainLoop()
 		if (SyslogStatusInterval != 0)
 			if (++stat_counter == SyslogStatusInterval*12) { // Because the service loops ~12 times/min
 				stat_counter = 0; /* Reset Counter */
-				Log(LOG_INFO, "%s - Eventlog to Syslog Service Running",GetTimeStamp());
+				Log(LOG_INFO, "Eventlog to Syslog Service Running");
 			}
 
 		/* Sleep five seconds */
