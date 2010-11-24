@@ -171,7 +171,7 @@ static void mainUsage()
 		fputs("  -b host      Name of secondary log host\n", stderr);
 		fputs("  -f facility  Facility level of syslog message\n", stderr);
 		fputs("  -l level     Minimum level to send to syslog.\n", stderr);
-		fputs("               0=All/Verbose, 1 = Critical, 2 = Error, 3 = Warning, 4 = Info\n", stderr);
+		fputs("               0=All/Verbose, 1=Critical, 2=Error, 3=Warning, 4=Info\n", stderr);
 		fputs("  -n           Include only those events specified in the config file.\n", stderr);
 		fputs("  -p port      Port number of syslogd\n", stderr);
 		fputs("  -q bool      Query the Dhcp server to obtain the syslog/port to log to\n", stderr);
