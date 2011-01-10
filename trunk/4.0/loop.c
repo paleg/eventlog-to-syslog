@@ -69,7 +69,6 @@ int MainLoop()
 {
 	char * output = NULL;
 	EventList IgnoredEvents[MAX_IGNORED_EVENTS];
-	BOOL winEvents = FALSE;
 	HKEY hkey = NULL;
 	int level;
 	int log;
