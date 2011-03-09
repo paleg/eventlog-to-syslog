@@ -74,6 +74,10 @@ int MainLoop()
 	int log;
 	int stat_counter = 0;
 	FILE *fp = NULL;
+    BOOL winEvents;
+
+    /* Check for new Crimson Log Service */
+	winEvents = CheckForWindowsEvents();
 
 	/* Grab Ignore List From File */
 	if (CheckSyslogIgnoreFile(IgnoredEvents, CONFIG_FILE) < 0)
@@ -113,7 +117,7 @@ int MainLoop()
 			for (log = 0; log < EventlogCount; log++) {
 				/* Loop for all messages */
 				while ((output = EventlogNext(IgnoredEvents, log, &level)))
-					if ((_strnicmp(output, "Skip!!!", strlen(output))) != 0)
+					if (output != NULL)
 						if (SyslogSend(output, level)) {
 							ServiceIsRunning = FALSE;
 							break;

@@ -80,7 +80,7 @@ typedef struct EVENT_LIST EventList;
 #define in_addr_t	unsigned long
 
 /* Prototypes */
-void    CheckForWindowsEvents();
+BOOL    CheckForWindowsEvents();
 int     CheckSyslogFacility(char * facility);
 int     CheckSyslogIgnoreFile(EventList * ignore_list, char * filename);
 int	    CheckSyslogInterval(char * interval);

@@ -60,7 +60,6 @@
 
 /* External Variables */
 extern int IGNORED_LINES;
-extern BOOL winEvents;
 
 /* Ignored Events Structure */
 struct EVENT_LIST {
