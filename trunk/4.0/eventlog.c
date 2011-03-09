@@ -297,7 +297,7 @@ char * EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * le
 	if (IgnoreSyslogEvent(ignore_list, source, event_id)) {
 		if (LogInteractive)
 			printf("IGNORING_EVENT: SOURCE=%s & ID=%i\n", source, event_id);
-		return "Skip!!!";
+		return NULL;
 	}
 	
 	/* Check number of strings */
@@ -398,7 +398,7 @@ char * EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * le
 	/* If event is not being ignored, make sure it is severe enough to be logged */
 	if (SyslogLogLevel != 0)
 		if (SyslogLogLevel < loglevel-1)
-			return "Skip!!!";
+			return NULL;
 
 	/* Add hostname for RFC compliance (RFC 3164) */
 	if (ExpandEnvironmentStrings("%COMPUTERNAME%", hostname, COUNT_OF(hostname)) == 0) {

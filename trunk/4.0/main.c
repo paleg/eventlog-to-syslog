@@ -121,9 +121,6 @@ static int mainOperateFlags()
 	if (RegistryRead())
 		return 1;
 
-	/* Check for new Crimson Log Service */
-	CheckForWindowsEvents();
-
 	/* query the dhcp if enabled */
 	if( SyslogQueryDhcp && !DHCPQuery() ) {
 		SyslogOpen(3);

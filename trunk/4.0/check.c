@@ -61,7 +61,6 @@
 #include "check.h"
 
 int IGNORED_LINES;
-BOOL winEvents;
 
 /* Facility conversion table */
 static struct {
@@ -354,9 +353,10 @@ int CheckSyslogIncludeOnly()
 }
 
 /* Check for new Crimson Log Service */
-void CheckForWindowsEvents()
+BOOL CheckForWindowsEvents()
 {
 	HKEY hkey = NULL;
+    BOOL winEvents;
 
 	/* Check if the new Windows Events Service is in use */
 	/* If so we will use the new API's to sift through events */
@@ -372,4 +372,6 @@ void CheckForWindowsEvents()
 	 * to the new Windows Events. Set level to 2 (Error) */
 	if (winEvents == FALSE && SyslogLogLevel == 1)
 		SyslogLogLevel = 2;
+
+    return winEvents;
 }
