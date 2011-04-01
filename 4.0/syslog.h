@@ -93,7 +93,7 @@
 */
 
 /* Maximum size of a message */
-#define SYSLOG_SZ		1024
+#define SYSLOG_DEF_SZ		1024
 
 /* Masks */
 #define SYSLOG_PRI(x)		((x) & 0x07)
@@ -148,11 +148,18 @@
 #define SYSLOG_HOST_SZ		64
 #define MAX_CONFIG_FNAME	128
 
+/* Tag max size */
+#define SYSLOG_TAG_SZ		64
+
 /* Application data configuration */
-extern char SyslogLogHost[SYSLOG_HOST_SZ+1];
+extern char SyslogLogHost1[SYSLOG_HOST_SZ+1];
 extern char SyslogLogHost2[SYSLOG_HOST_SZ+1];
+extern char SyslogLogHost3[SYSLOG_HOST_SZ+1];
+extern char SyslogLogHost4[SYSLOG_HOST_SZ+1];
 extern char SyslogLogHostDhcp[SYSLOG_HOST_SZ+1];
 extern char SyslogConfigFile[MAX_CONFIG_FNAME+1];
+extern char SyslogTag[SYSLOG_TAG_SZ+1];
+extern DWORD SyslogIncludeTag;
 extern DWORD SyslogPort;
 extern DWORD SyslogPortDhcp;
 extern DWORD SyslogFacility;
@@ -160,3 +167,5 @@ extern DWORD SyslogStatusInterval;
 extern DWORD SyslogQueryDhcp;
 extern DWORD SyslogLogLevel;
 extern DWORD SyslogIncludeOnly;
+extern DWORD SyslogMessageSize;
+extern DWORD SyslogEnableTcp;

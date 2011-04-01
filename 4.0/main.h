@@ -55,8 +55,8 @@
 */
 
 /* Basic include files */
+#include <winsock2.h>
 #include <windows.h>
-#include <winsock.h>
 #include <iphlpapi.h>
 #include <dhcpcsdk.h>
 #include <lm.h>
@@ -80,7 +80,7 @@ typedef struct EVENT_LIST EventList;
 #define in_addr_t	unsigned long
 
 /* Prototypes */
-BOOL    CheckForWindowsEvents();
+int     CheckForWindowsEvents();
 int     CheckSyslogFacility(char * facility);
 int     CheckSyslogIgnoreFile(EventList * ignore_list, char * filename);
 int	    CheckSyslogInterval(char * interval);
@@ -89,8 +89,10 @@ int     CheckSyslogPort(char * port);
 int     CheckSyslogQueryDhcp(char * value);
 int     CheckSyslogLogLevel(char * level);
 int     CheckSyslogIncludeOnly();
+int		CheckSyslogTag(char * arg);
 char*   CollapseExpandMessage(char * message);
 WCHAR*  CollapseExpandMessageW(WCHAR * message);
+int	    ConnectSocket(char * loghost, unsigned short port, int ID);
 int     EventlogCreate(char * name);
 char*   EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * level);
 void    EventlogsClose(void);
@@ -114,9 +116,10 @@ int     RegistryRead(void);
 int     RegistryUninstall(void);
 int     ServiceInstall(void);
 int     ServiceRemove(void);
-DWORD WINAPI ServiceStart(void);
+DWORD   WINAPI ServiceStart(void);
+BOOL    WINAPI ShutdownConsole(DWORD dwCtrlType);
 void    SyslogClose(void);
-int     SyslogOpen(int ID);
+int     SyslogOpen(void);
 int     SyslogSend(char * message, int level);
 int     SyslogSendW(WCHAR * message, int level);
 char*   TimeToString(DWORD dw);

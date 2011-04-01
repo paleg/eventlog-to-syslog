@@ -78,13 +78,18 @@ static char RegistryApplicationDataPath[] = "Software\\ECN\\EvtSys\\3.0";
 /* List of application data */
 static struct RegistryData RegistryApplicationDataList[] = {
 	{ "Facility", REG_DWORD, &SyslogFacility, sizeof(SyslogFacility), TRUE },
-	{ "LogHost", REG_SZ, &SyslogLogHost, sizeof(SyslogLogHost), TRUE },
+	{ "LogHost", REG_SZ, &SyslogLogHost1, sizeof(SyslogLogHost1), TRUE },
 	{ "LogHost2", REG_SZ, &SyslogLogHost2, sizeof(SyslogLogHost2), FALSE },
+    { "LogHost3", REG_SZ, &SyslogLogHost3, sizeof(SyslogLogHost3), FALSE },
+	{ "LogHost4", REG_SZ, &SyslogLogHost4, sizeof(SyslogLogHost4), FALSE },
 	{ "Port", REG_DWORD, &SyslogPort, sizeof(SyslogPort), TRUE },
 	{ "StatusInterval", REG_DWORD, &SyslogStatusInterval, sizeof(SyslogStatusInterval), FALSE },
 	{ "QueryDhcp", REG_DWORD, &SyslogQueryDhcp, sizeof(SyslogQueryDhcp), FALSE },
 	{ "LogLevel", REG_DWORD, &SyslogLogLevel, sizeof(SyslogLogLevel), FALSE },
-	{ "IncludeOnly", REG_DWORD, &SyslogIncludeOnly, sizeof(SyslogIncludeOnly), FALSE }
+	{ "IncludeOnly", REG_DWORD, &SyslogIncludeOnly, sizeof(SyslogIncludeOnly), FALSE },
+	{ "Tag", REG_SZ, &SyslogTag, sizeof(SyslogTag), FALSE },
+	{ "MaxMessageSize", REG_DWORD, &SyslogMessageSize, sizeof(SyslogMessageSize), FALSE },
+	{ "EnableTcp", REG_DWORD, &SyslogEnableTcp, sizeof(SyslogEnableTcp), FALSE }
 };
 
 /* Location of eventlog data in registry tree */

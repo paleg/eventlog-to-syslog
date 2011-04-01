@@ -196,14 +196,14 @@ int CheckSyslogLogHost(char * loghost, int ID)
 	ipstr = inet_ntoa(ia);
 
 	/* Check size */
-	if (strlen(ipstr) > sizeof(SyslogLogHost)-1) {
+	if (strlen(ipstr) > sizeof(SyslogLogHost1)-1) {
 		Log(LOG_ERROR, "Log host address too long: \"%s\"", ipstr);
 		return 1;
 	}
 
 	/* Store new value */
 	if (ID == 1)
-		strncpy_s(SyslogLogHost, sizeof(SyslogLogHost), ipstr, _TRUNCATE);
+		strncpy_s(SyslogLogHost1, sizeof(SyslogLogHost1), ipstr, _TRUNCATE);
 	else
 		strncpy_s(SyslogLogHost2, sizeof(SyslogLogHost2), ipstr, _TRUNCATE);
 
@@ -352,11 +352,24 @@ int CheckSyslogIncludeOnly()
 	return 0;
 }
 
+int CheckSyslogTag(char * arg)
+{
+	if(strlen(arg) > sizeof(SyslogTag)-1) {
+		Log(LOG_ERROR, "Syslog tag too long: \"%s\"", arg);
+		return 1;
+	}
+	
+	SyslogIncludeTag = TRUE;
+	strncpy_s(SyslogTag, sizeof(SyslogTag), arg, _TRUNCATE);
+
+	return 0;
+}
+
 /* Check for new Crimson Log Service */
-BOOL CheckForWindowsEvents()
+int CheckForWindowsEvents()
 {
 	HKEY hkey = NULL;
-    BOOL winEvents;
+    BOOL winEvents = FALSE;
 
 	/* Check if the new Windows Events Service is in use */
 	/* If so we will use the new API's to sift through events */

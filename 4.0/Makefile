@@ -140,11 +140,11 @@ loop.c:		syslog.h
 loop.c:		ver.h
 main.c:		main.h
 main.c:		check.h
-main.c:		dhcp.h
 main.c:		eventlog.h
 main.c:		log.h
 main.c:		syslog.h
 main.c:		getopt.h
+main.c:		wsock.h
 registry.c:	main.h
 registry.c:	log.h
 registry.c:	syslog.h
@@ -154,8 +154,10 @@ service.c:	log.h
 support.c:	main.h
 support.c:	log.h
 support.c:	syslog.h
+syslog.c:   dhcp.h
 syslog.c:	main.h
 syslog.c:	syslog.h
+syslog.c:	wsock.h
 ver.rc:		ver.h
 winevent.c: main.h
 winevent.c: log.h
@@ -164,3 +166,4 @@ wsock.c:	main.h
 wsock.c:	log.h
 wsock.c:	syslog.h
 wsock.c:	dhcp.h
+wsock.c:	wsock.h

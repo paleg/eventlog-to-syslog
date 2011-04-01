@@ -124,8 +124,8 @@ void Log(int level, char * message, ...)
 	WORD eventlog_priority;
 	char hostname[HOSTNAME_SZ];
 	char windows_message[ERRMSG_SZ];
-	char error_message[SYSLOG_SZ-17];
-	char tstamped_message[SYSLOG_SZ];
+	char error_message[SYSLOG_DEF_SZ-17];
+	char tstamped_message[SYSLOG_DEF_SZ];
 	int syslog_level;
 	va_list args;
 
@@ -188,10 +188,11 @@ void Log(int level, char * message, ...)
 	);
 
 	/* Send to syslog if network running */
-	if (WSockSocket == INVALID_SOCKET || SyslogSend(tstamped_message, syslog_level))
-
+	if (SyslogSend(tstamped_message, syslog_level))
+	{
 		/* Otherwise, send to eventlog */
 		LogSend(eventlog_priority, tstamped_message);
+	}
 
 	/* Output to console */
 	if (LogInteractive) {
