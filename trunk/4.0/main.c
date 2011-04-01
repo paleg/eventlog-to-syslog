@@ -63,7 +63,7 @@
 #include "ver.h"
 #include "check.h"
 #include "winevent.h"
-#include "dhcp.h"
+#include "wsock.h"
 
 /* Main program */
 
@@ -79,6 +79,7 @@ static char * ProgramSyslogLogHost2 = NULL;
 static char * ProgramSyslogPort = NULL;
 static char * ProgramSyslogQueryDhcp = NULL;
 static char * ProgramSyslogInterval = NULL;
+static char * ProgramSyslogTag = NULL;
 static char * ProgramLogLevel = NULL;
 static EventList IgnoredEvents[MAX_IGNORED_EVENTS];
 
@@ -121,18 +122,9 @@ static int mainOperateFlags()
 	if (RegistryRead())
 		return 1;
 
-	/* query the dhcp if enabled */
-	if( SyslogQueryDhcp && !DHCPQuery() ) {
-		SyslogOpen(3);
-	}
-
-	/* Start network connection */
-	if (SyslogOpen(1))
-		return 1;
-	if (SyslogLogHost2[0] != '\0') {
-		if (SyslogOpen(2))
-			return 1;
-	}
+    /* Open Syslog Connections */
+    if(SyslogOpen())
+        return 1;
 
 	/* If in debug mode, call main loop directly */
 	if (ProgramDebug)
@@ -141,7 +133,7 @@ static int mainOperateFlags()
 		/* Otherwise, start service dispatcher, that will eventually call MainLoop */
 		status = ServiceStart();
 
-	/* Close syslog */
+	/* Close syslog connections */
 	SyslogClose();
 
 	/* Return status */
@@ -160,7 +152,7 @@ static void mainUsage()
 #endif
 		);
 		fprintf(stderr, "Usage: %s -i|-u|-d [-h host] [-b host] [-f facility] [-p port]\n", ProgramName);
-		fputs("       [-s minutes] [-l level] [-n]\n", stderr);
+		fputs("       [-t tag] [-s minutes] [-l level] [-n]\n", stderr);
 		fputs("  -i           Install service\n", stderr);
 		fputs("  -u           Uninstall service\n", stderr);
 		fputs("  -d           Debug: run as console program\n", stderr);
@@ -173,6 +165,7 @@ static void mainUsage()
 		fputs("  -p port      Port number of syslogd\n", stderr);
 		fputs("  -q bool      Query the Dhcp server to obtain the syslog/port to log to\n", stderr);
 		fputs("               (0/1 = disable/enable)\n", stderr);
+		fputs("  -t tag       Include tag as program field in syslog message.\n", stderr);
 		fputs("  -s minutes   Optional interval between status messages. 0 = Disabled\n", stderr);
 		fputc('\n', stderr);
 		fprintf(stderr, "Default port: %u\n", SYSLOG_DEF_PORT);
@@ -189,7 +182,7 @@ static int mainProcessFlags(int argc, char ** argv)
 	int flag;
 
 	/* Note all actions */
-	while ((flag = GetOpt(argc, argv, "f:iudh:b:p:q:s:l:n")) != EOF) {
+	while ((flag = GetOpt(argc, argv, "f:iudh:b:p:q:s:l:nt:")) != EOF) {
 		switch (flag) {
 			case 'd':
 				ProgramDebug = TRUE;
@@ -223,6 +216,9 @@ static int mainProcessFlags(int argc, char ** argv)
 				break;
 			case 'n':
 				ProgramIncludeOnly = TRUE;
+				break;
+			case 't':
+				ProgramSyslogTag = GetOptArg;
 				break;
 			default:
 				mainUsage();
@@ -286,6 +282,10 @@ static int mainProcessFlags(int argc, char ** argv)
 	if (ProgramIncludeOnly)
 		CheckSyslogIncludeOnly();
 
+	if(ProgramSyslogTag)
+		if(CheckSyslogTag(ProgramSyslogTag))
+			return 1;
+
 	/* Check for Ignore File */
 	if(LogInteractive)
 		printf("Checking ignore file...\n");
@@ -302,6 +302,8 @@ static int mainProcessFlags(int argc, char ** argv)
 int main(int argc, char ** argv)
 {
 	int status;
+
+    SetConsoleCtrlHandler(ShutdownConsole, TRUE);
 
 	/* Save program name */
 	ProgramName = argv[0];
@@ -335,4 +337,22 @@ int main(int argc, char ** argv)
 
 	/* Success */
 	return status;
+}
+
+/* Shut down the console cleanly */
+BOOL WINAPI ShutdownConsole(DWORD dwCtrlType)
+{
+    switch(dwCtrlType)
+    {
+        case CTRL_C_EVENT:
+        case CTRL_BREAK_EVENT:
+        case CTRL_CLOSE_EVENT:
+            SyslogClose();
+            break;
+        default:
+            return FALSE;
+    }
+
+    Log(LOG_INFO, "Signal caught, shutting down and exiting...");
+    exit(0);
 }

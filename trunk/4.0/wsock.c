@@ -59,6 +59,7 @@
 #include "log.h"
 #include "syslog.h"
 #include "dhcp.h"
+#include "wsock.h"
 
 /* WinSock */
 
@@ -66,15 +67,21 @@
 static WSADATA ws_data;
 static BOOL WSockStarted = FALSE;
 
-/* Connection socket */
-SOCKET WSockSocket = INVALID_SOCKET;
-SOCKET WSockSocket2 = INVALID_SOCKET;
-SOCKET WSockSocketDhcp = INVALID_SOCKET;
+/* List of items for a server connection */ 
+struct WSockSockets {
+	char * Name;			/* Name of Socket */
+	SOCKET Socket;			/* WinSock Socket */
+	BOOL Connected;			/* Is Socket connected and available */
+	struct sockaddr_in SockAddress; /* WinSock Address structure */
+};
 
-/* Where to send syslog information */
-static struct sockaddr_in WSockAddress;
-static struct sockaddr_in WSockAddress2;
-static struct sockaddr_in WSockAddressDhcp;
+static struct WSockSockets SyslogSockets[] = {
+	{ "LogHost1", INVALID_SOCKET, FALSE },
+	{ "LogHost2", INVALID_SOCKET, FALSE },
+    { "LogHost3", INVALID_SOCKET, FALSE },
+	{ "LogHost4", INVALID_SOCKET, FALSE },
+	{ "LogHostDhcp", INVALID_SOCKET, FALSE }
+};
 
 /* Start Winsock access */
 int WSockStart()
@@ -114,80 +121,80 @@ void WSockStop()
 int WSockOpen(char * loghost, unsigned short port, int ID)
 {
 	in_addr_t ip;
+	int type, protocol;
 	
 	/* Convert IP number */
 	ip = inet_addr(loghost);
 	if (ip == (in_addr_t)(-1)) {
-		Log(LOG_ERROR, "Invalid log host: \"%s\"", loghost);
+		Log(LOG_ERROR, "Invalid ip address: \"%s\" for %s", loghost, SyslogSockets[ID].Name);
 		return 1;
 	}
 
-	/* Initialize remote address structure
-	 * Terrible workaround so that we don't have to rewrite
-	 * the old implementation. Needs to be fixed properly.
-	 *                                             Sherwin
-	 */
-	if (ID == 1) {
-		memset(&WSockAddress, 0, sizeof(WSockAddress));
-		WSockAddress.sin_family = AF_INET;
-		WSockAddress.sin_port = htons(port);
-		WSockAddress.sin_addr.s_addr = ip;
+	if (SyslogEnableTcp) {
+		type = SOCK_STREAM;
+		protocol = IPPROTO_TCP;
+	} else {
+		type = SOCK_DGRAM;
+		protocol = IPPROTO_UDP;
+	}
 
-		/* Create socket */
-		WSockSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-		if (WSockSocket == INVALID_SOCKET) {
-			Log(LOG_ERROR|LOG_SYS, "Cannot create a datagram socket for primary host");
-			return 1;
-		}
-	} else if (ID == 2) {
-		/* Initialize remote address structure */
-		memset(&WSockAddress2, 0, sizeof(WSockAddress2));
-		WSockAddress2.sin_family = AF_INET;
-		WSockAddress2.sin_port = htons(port);
-		WSockAddress2.sin_addr.s_addr = ip;
+	memset(&SyslogSockets[ID].SockAddress, 0, sizeof(SyslogSockets[ID].SockAddress));
+	SyslogSockets[ID].SockAddress.sin_family = AF_INET;
+	SyslogSockets[ID].SockAddress.sin_port = htons(port);
+	SyslogSockets[ID].SockAddress.sin_addr.s_addr = ip;
 
-		/* Create socket */
-		WSockSocket2 = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-		if (WSockSocket2 == INVALID_SOCKET) {
-			Log(LOG_ERROR|LOG_SYS, "Cannot create a datagram socket for secondary host");
-			return 1;
-		}
-	} else if (ID == 3) {
+	/* Create socket */
+	SyslogSockets[ID].Socket = socket(AF_INET, type, protocol);
+	if (SyslogSockets[ID].Socket == INVALID_SOCKET) {
+		Log(LOG_ERROR|LOG_SYS, "Cannot create a socket for %s (%s:%u)",
+			SyslogSockets[ID].Name,
+			loghost,
+			port);
+		return 1;
+	}
 
-		/* Initialize remote address structure */
-		memset(&WSockAddressDhcp, 0, sizeof(WSockAddressDhcp));
-		WSockAddressDhcp.sin_family = AF_INET;
-		WSockAddressDhcp.sin_port = htons(port);
-		WSockAddressDhcp.sin_addr.s_addr = ip;
+	return ConnectSocket(loghost, port, ID);
+}
 
-		/* Create socket */
-		WSockSocketDhcp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+/* Connect Socket */
+int ConnectSocket(char * loghost, unsigned short port, int ID)
+{
+	int result;
 
-		if (WSockSocketDhcp == INVALID_SOCKET) {
-			Log(LOG_ERROR|LOG_SYS, "Cannot create a datagram socket for dhcp-specified host");
-			return 1;
-		}
+	result = connect(SyslogSockets[ID].Socket,
+					 (SOCKADDR*)&SyslogSockets[ID].SockAddress,
+					 sizeof(SyslogSockets[ID].SockAddress));
+
+	if (result == SOCKET_ERROR) {
+		Log(LOG_ERROR|LOG_SYS,
+			"Connecting socket for %s (%s:%u) failed with error %d",
+			SyslogSockets[ID].Name,
+			loghost,
+			port,
+			WSAGetLastError());
+		return 1;
 	}
 
 	/* Success */
+	SyslogSockets[ID].Connected = TRUE;
 	return 0;
 }
 
 /* Close connection */
 void WSockClose()
 {
-	/* Close if open */
-	if (WSockSocket != INVALID_SOCKET) {
-		closesocket(WSockSocket);
-		WSockSocket = INVALID_SOCKET;
-	}
-	if (WSockSocket2 != INVALID_SOCKET) {
-		closesocket(WSockSocket2);
-		WSockSocket2 = INVALID_SOCKET;
-	}
-	if (WSockSocketDhcp != INVALID_SOCKET) {
-		closesocket(WSockSocketDhcp);
-		WSockSocketDhcp = INVALID_SOCKET;
+	int count = COUNT_OF(SyslogSockets);
+	int i;
+
+	for (i = 0; i < count; i++)
+	{
+		/* Close if open */
+		if (SyslogSockets[i].Socket != INVALID_SOCKET)
+		{
+			shutdown(SyslogSockets[i].Socket, SD_BOTH);
+			closesocket(SyslogSockets[i].Socket);
+			SyslogSockets[i].Socket = INVALID_SOCKET;
+		}
 	}
 }
 
@@ -196,39 +203,23 @@ int WSockSend(char * message)
 {
 	int len;
 	int done = 0;
+    int i;
+    int count = COUNT_OF(SyslogSockets);
 
-	/* Get message length */
+    /* Get message length */
 	len = (int) strlen(message);
 
-	/* Send to syslog server, try dhcp first if valid, user specified servers then */
-	/* Currently only one dhcp server can be specified. May change this in the future */
-	if( SyslogQueryDhcp && (WSockSocketDhcp != INVALID_SOCKET) ) {
-
-		if( sendto(WSockSocketDhcp, message, len, 0, (struct sockaddr *) &WSockAddressDhcp, sizeof(WSockAddress)) != len) {
-			if (h_errno != WSAEHOSTUNREACH && h_errno != WSAENETUNREACH) {
-				Log(LOG_ERROR|LOG_SYS, "Cannot send message through socket for host dhcp");
-				return 1;
-			}
-		}
-
-	} else {
-		if (WSockSocket != INVALID_SOCKET) {
-			if (sendto(WSockSocket, message, len, 0, (struct sockaddr *) &WSockAddress, sizeof(WSockAddress)) != len) {
-				if (h_errno != WSAEHOSTUNREACH && h_errno != WSAENETUNREACH) {
-					Log(LOG_ERROR|LOG_SYS, "Cannot send message through socket for host 1");
-					return 1;
-				}
-			}
-		}
-
-		if (WSockSocket2 != INVALID_SOCKET) {
-			if (sendto(WSockSocket2, message, len, 0, (struct sockaddr *) &WSockAddress2, sizeof(WSockAddress2)) != len) {
-				if (h_errno != WSAEHOSTUNREACH && h_errno != WSAENETUNREACH) {
-					Log(LOG_ERROR|LOG_SYS, "Cannot send message through socket for host 2");
-					return 1;
-				}
-			}
-		}
+	for (i = 0; i < count; i++)
+	{
+	    /* Send to syslog server */
+	    if(SyslogSockets[i].Socket != INVALID_SOCKET) {
+		    if(send(SyslogSockets[i].Socket, message, len, 0) != len) {
+			    if (h_errno != WSAEHOSTUNREACH && h_errno != WSAENETUNREACH) {
+                    Log(LOG_ERROR|LOG_SYS, "Cannot send message through socket for %s", SyslogSockets[i].Name);
+				    return 1;
+			    }
+		    }
+	    }
 	}
 
 	/* Success */

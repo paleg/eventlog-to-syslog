@@ -73,8 +73,8 @@ int MainLoop()
 	int level;
 	int log;
 	int stat_counter = 0;
-	FILE *fp = NULL;
     BOOL winEvents;
+	FILE *fp = NULL;
 
     /* Check for new Crimson Log Service */
 	winEvents = CheckForWindowsEvents();
@@ -103,9 +103,10 @@ int MainLoop()
 		"32"
 #endif
 	);
-	Log(LOG_INFO, "Flags: LogLevel=%u, IncludeOnly=%s, StatusInterval=%u",
+	Log(LOG_INFO, "Flags: LogLevel=%u, IncludeOnly=%s, EnableTcp=%s, StatusInterval=%u",
 		SyslogLogLevel,
 		SyslogIncludeOnly == 0 ? "False" : "True",
+		SyslogEnableTcp == 0 ? "False" : "True",
 		SyslogStatusInterval
 	);
 

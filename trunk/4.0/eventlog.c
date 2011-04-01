@@ -206,8 +206,8 @@ char * EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * le
 	int i;
 	char *index;
 
-	static char message[SYSLOG_SZ-17];
-	static char tstamped_message[SYSLOG_SZ];
+	static char message[SYSLOG_DEF_SZ-17];
+	static char tstamped_message[SYSLOG_DEF_SZ];
 
 	/* Initialize array to prevent memory exceptions with bad message definitions */
 	for(i = 0; i < EVENTLOG_ARRAY_SZ; i++)
@@ -346,11 +346,20 @@ char * EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * le
 	}
 
 	/* Format source and event ID number */
-	_snprintf_s(message, sizeof(message), _TRUNCATE,
-		"%s: %u: ",
-		source,
-		HRESULT_CODE(event->EventID)
-	);
+	if(SyslogIncludeTag) {
+		_snprintf_s(message, sizeof(message), _TRUNCATE,
+			"%s: %s: %u: ",
+			SyslogTag,
+			source,
+			HRESULT_CODE(event->EventID)
+		);
+	} else {
+		_snprintf_s(message, sizeof(message), _TRUNCATE,
+			"%s: %u: ",
+			source,
+			HRESULT_CODE(event->EventID)
+		);
+	}
 
 	/* Convert user */
 	if (event->UserSidLength > 0) {

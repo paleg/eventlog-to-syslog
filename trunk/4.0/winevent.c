@@ -311,7 +311,7 @@ WCHAR * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 	WCHAR * tstamp = NULL;
 	WCHAR * index = NULL;
 	WCHAR defmsg[ERRMSG_SZ];
-	WCHAR tstamped_message[SYSLOG_SZ];
+	WCHAR tstamped_message[SYSLOG_DEF_SZ];
 
 	pwsQuery = (LPWSTR)malloc(QUERY_SZ);
 

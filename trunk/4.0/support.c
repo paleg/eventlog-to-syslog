@@ -103,7 +103,7 @@ char * GetTimeStamp()
 	time_t t = time(NULL);
 	struct tm stm;
 	char result[16];
-	static char * timestamp = "Mmm dd hh:mm:ss";
+	static char timestamp[] = "Mmm dd hh:mm:ss";
 
 	/* Format timestamp string */ 
 	if (localtime_s(&stm, &t) == 0) {
@@ -112,7 +112,7 @@ char * GetTimeStamp()
 			result[4] = ' ';  /* single digit days so we comply with the RFC */ 
 	} else 
 		result[0] = '\0'; 
-	strncpy_s(timestamp, sizeof(result), result, _TRUNCATE);
+	strncpy_s(timestamp, sizeof(timestamp), result, _TRUNCATE);
 
 	return timestamp;
 }
@@ -369,7 +369,7 @@ char * CollapseExpandMessage(char * message)
 	char ch;
 	char errstr[ERRMSG_SZ];
 
-	static char result[SYSLOG_SZ];
+	static char result[SYSLOG_DEF_SZ];
 
 	/* Initialize */
 	ip = message;
@@ -460,7 +460,7 @@ WCHAR * CollapseExpandMessageW(WCHAR * message)
 	WCHAR ch;
 	WCHAR errstr[ERRMSG_SZ];
 
-	static WCHAR result[SYSLOG_SZ];
+	static WCHAR result[SYSLOG_DEF_SZ];
 
 	/* Initialize */
 	ip = message;
