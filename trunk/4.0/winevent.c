@@ -396,14 +396,21 @@ WCHAR * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 				break;
 			} else if (status != ERROR_SUCCESS) {
 				if (status == ERROR_TIMEOUT && LogInteractive)
+                {
 					Log(LOG_INFO, "EvtNext: Timed out trying to get event from Log'%S' with RecordID: %i. Trying again",
 						WinEventlogList[log].name, WinEventlogList[log].recnum
-					); 
+					);
+                    continue;
+                }
 				else
+                {
 					Log(LOG_ERROR|LOG_SYS, "EvtNext: Error getting event from Log: '%S' with RecordID: %i",
 						WinEventlogList[log].name, WinEventlogList[log].recnum
 					);
-				continue;
+                    WinEventlogList[log].recnum++;
+                    continue;
+                }
+				
 			}
 		}
 		/* Increase record number */
