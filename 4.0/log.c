@@ -180,12 +180,25 @@ void Log(int level, char * message, ...)
 
 	/* Create Timestamp and add to error_message along with hostname */
 	/* This maintains consistency with regular non-error packets */
-	_snprintf_s(tstamped_message, sizeof(tstamped_message), _TRUNCATE,
-		"%s %s %s",
-		GetTimeStamp(),
-		hostname,
-		error_message
-	);
+    if(SyslogIncludeTag)
+    {
+	    _snprintf_s(tstamped_message, sizeof(tstamped_message), _TRUNCATE,
+            "%s %s %s: %s",
+		    GetTimeStamp(),
+		    hostname,
+            SyslogTag,
+		    error_message
+	    );
+    }
+    else
+    {
+        _snprintf_s(tstamped_message, sizeof(tstamped_message), _TRUNCATE,
+		    "%s %s %s",
+		    GetTimeStamp(),
+		    hostname,
+		    error_message
+	    );
+    }
 
 	/* Send to syslog if network running */
 	if (SyslogSend(tstamped_message, syslog_level))

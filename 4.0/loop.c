@@ -83,6 +83,10 @@ int MainLoop()
 	if (CheckSyslogIgnoreFile(IgnoredEvents, CONFIG_FILE) < 0)
 		return 1;
 
+    /* Determine whether Tag is set */
+    if (strlen(SyslogTag) > 0)
+        SyslogIncludeTag = TRUE;
+
 	/* Gather eventlog names */
 	if (RegistryGather(winEvents))
 		return 1;
@@ -103,10 +107,11 @@ int MainLoop()
 		"32"
 #endif
 	);
-	Log(LOG_INFO, "Flags: LogLevel=%u, IncludeOnly=%s, EnableTcp=%s, StatusInterval=%u",
+	Log(LOG_INFO, "Flags: LogLevel=%u, IncludeOnly=%s, EnableTcp=%s, IncludeTag=%s, StatusInterval=%u",
 		SyslogLogLevel,
-		SyslogIncludeOnly == 0 ? "False" : "True",
-		SyslogEnableTcp == 0 ? "False" : "True",
+        SyslogIncludeOnly ? "True" : "False",
+        SyslogEnableTcp ? "True" : "False",
+        SyslogIncludeTag ? "True" : "False",
 		SyslogStatusInterval
 	);
 

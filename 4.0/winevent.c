@@ -464,7 +464,25 @@ WCHAR * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 		}
 
 		/* Add Timestamp and hostname then format source & event ID for consistency with Event Viewer */
-		_snwprintf_s(tstamped_message, COUNT_OF(tstamped_message), _TRUNCATE, L"%s %s %s: %i: ", tstamp, hostname, source, event_id);
+        if(SyslogIncludeTag)
+        {
+            _snwprintf_s(tstamped_message, COUNT_OF(tstamped_message), _TRUNCATE, L"%s %s %S: %s: %i: ",
+                tstamp,
+                hostname,
+                SyslogTag,
+                source,
+                event_id
+            );
+        }
+        else
+        {
+            _snwprintf_s(tstamped_message, COUNT_OF(tstamped_message), _TRUNCATE, L"%s %s %s: %i: ",
+                tstamp,
+                hostname,
+                source,
+                event_id
+            );
+        }
 
 		/* Get the handle to the provider's metadata that contains the message strings. */
 		hProviderMetadata = EvtOpenPublisherMetadata(NULL, pwszPublisherName, NULL, 0, 0);
@@ -486,11 +504,23 @@ WCHAR * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 
 		/* Create a default message if resources or formatting didn't work */
 		if (formatted_string == NULL) {
-			_snwprintf_s(defmsg, COUNT_OF(defmsg), _TRUNCATE,
-				L"(Facility: %u, Status: %s)",
-				HRESULT_FACILITY(event_id),
-				FAILED(event_id) ? L"Failure" : L"Success"
-			);
+            if(SyslogIncludeTag)
+            {
+			    _snwprintf_s(defmsg, COUNT_OF(defmsg), _TRUNCATE,
+                    L"%S: (Facility: %u, Status: %s)",
+                    SyslogTag,
+				    HRESULT_FACILITY(event_id),
+				    FAILED(event_id) ? L"Failure" : L"Success"
+			    );
+            }
+            else
+            {
+                _snwprintf_s(defmsg, COUNT_OF(defmsg), _TRUNCATE,
+                    L"(Facility: %u, Status: %s)",
+				    HRESULT_FACILITY(event_id),
+				    FAILED(event_id) ? L"Failure" : L"Success"
+			    );
+            }
 			formatted_string = defmsg;
 		}
 
