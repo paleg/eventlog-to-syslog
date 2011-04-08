@@ -169,43 +169,49 @@ int CheckSyslogPort(char * port)
 }
 
 /* Check log host */
-int CheckSyslogLogHost(char * loghost, int ID)
+int CheckSyslogLogHost(char * loghostarg, int ID)
 {
-	char * ipstr;
-	in_addr_t ip;
-	struct hostent * host;
-	struct in_addr ia;
+	char * ipstr = NULL;
+    char * loghost = NULL;
+    char * next_token = NULL;
+    char delim[] = ";";
 
-	/* Attempt to convert IP number */
-	ip = inet_addr(loghost);
-	if (ip == (in_addr_t)(-1)) {
+    /* Store new value */
+    // Need to clean up the whole host storage mechanism
+    // so much duplication is unacceptable
+    if (ID == 1)
+    {
+        if (ConvertLogHostToIp(loghostarg, &ipstr) == 0)
+	        strncpy_s(SyslogLogHost1, sizeof(SyslogLogHost1), ipstr, _TRUNCATE);
+        else
+            return 1;
+    }
+    else
+    {
+        loghost = strtok_s(loghostarg, delim, &next_token);
+        if (loghost && ConvertLogHostToIp(loghost, &ipstr) == 0)
+	        strncpy_s(SyslogLogHost2, sizeof(SyslogLogHost2), ipstr, _TRUNCATE);
+        else
+            return 1;
 
-		/* Attempt to convert host name */
-		host = gethostbyname(loghost);
-		if (host == NULL) {
-			Log(LOG_ERROR, "Invalid log host: \"%s\"", loghost);
-			return 1;
-		}
+        loghost = strtok_s(NULL, delim, &next_token);
+        if (loghost)
+        {
+            if (ConvertLogHostToIp(loghost, &ipstr) == 0)
+	            strncpy_s(SyslogLogHost3, sizeof(SyslogLogHost3), ipstr, _TRUNCATE);
+            else
+                return 1;
+        }
 
-		/* Set ip */
-		ip = *(in_addr_t *)host->h_addr;
-	}
-
-	/* Convert to IP */
-	ia.s_addr = ip;
-	ipstr = inet_ntoa(ia);
-
-	/* Check size */
-	if (strlen(ipstr) > sizeof(SyslogLogHost1)-1) {
-		Log(LOG_ERROR, "Log host address too long: \"%s\"", ipstr);
-		return 1;
-	}
-
-	/* Store new value */
-	if (ID == 1)
-		strncpy_s(SyslogLogHost1, sizeof(SyslogLogHost1), ipstr, _TRUNCATE);
-	else
-		strncpy_s(SyslogLogHost2, sizeof(SyslogLogHost2), ipstr, _TRUNCATE);
+        loghost = strtok_s(NULL, delim, &next_token);
+        if (loghost)
+        {
+            if (ConvertLogHostToIp(loghost, &ipstr) == 0)
+	            strncpy_s(SyslogLogHost4, sizeof(SyslogLogHost4), ipstr, _TRUNCATE);
+            else
+                return 1;
+        }
+    }
 
 	/* Success */
 	return 0;

@@ -563,3 +563,39 @@ char * FormatLibraryMessage(char * message_file, DWORD event_id, char ** string_
 	/* Return result */
 	return message;
 }
+
+/* Convert string address to IP */
+int ConvertLogHostToIp(char * loghost, char ** ipstr)
+{
+    in_addr_t ip;
+	struct hostent * host;
+	struct in_addr ia;
+
+    /* Attempt to convert IP number */
+    ip = inet_addr(loghost);
+    if (ip == (in_addr_t)(-1)) {
+
+	    /* Attempt to convert host name */
+	    host = gethostbyname(loghost);
+	    if (host == NULL) {
+		    Log(LOG_ERROR, "Invalid log host: \"%s\"", loghost);
+		    return 1;
+	    }
+
+	    /* Set ip */
+	    ip = *(in_addr_t *)host->h_addr;
+    }
+
+    /* Convert to IP */
+    ia.s_addr = ip;
+    *ipstr = inet_ntoa(ia);
+
+    /* Check size */
+    if (strlen(*ipstr) > sizeof(SyslogLogHost1)-1) {
+	    Log(LOG_ERROR, "Log host address too long: \"%s\"", ipstr);
+	    return 1;
+    }
+
+    /* Success */
+    return 0;
+}
