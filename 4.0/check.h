@@ -56,7 +56,7 @@
 
 /* CONSTANTS */
 #define MIN_LOG_LEVEL 0
-#define MAX_LOG_LEVEL 3
+#define MAX_LOG_LEVEL 4
 
 /* External Variables */
 extern int IGNORED_LINES;
