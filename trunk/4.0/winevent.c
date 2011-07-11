@@ -64,6 +64,111 @@ struct WinEventlog {
 static struct WinEventlog WinEventlogList[WIN_EVENTLOG_SZ];
 int WinEventlogCount = 0;
 
+EVT_HANDLE WinEventSub = NULL;
+
+DWORD WinEventSubscribe(EventList * IgnoredEvents)
+{
+    LPWSTR error_msg = NULL;
+    WCHAR pQueryL[QUERY_LIST_SZ];
+    DWORD used;
+    DWORD status = ERROR_SUCCESS;
+
+    CreateQueryString(pQueryL, IgnoredEvents);
+
+    WinEventSub = EvtSubscribe(NULL, NULL, NULL, pQueryL, NULL, IgnoredEvents, 
+                                 (EVT_SUBSCRIBE_CALLBACK)WinEventCallback,
+                                 EvtSubscribeToFutureEvents);
+
+    error_msg = (LPWSTR)malloc(SYSLOG_DEF_SZ*sizeof(WCHAR));
+
+    if (WinEventSub == NULL)
+    {
+        status = GetLastError();
+
+        if (ERROR_EVT_CHANNEL_NOT_FOUND == status)
+            Log(LOG_WARNING, "Channel %s was not found.\n", "1");
+        else if (ERROR_EVT_INVALID_QUERY == status)
+        {
+            Log(LOG_ERROR, "The query \"%s\" is not valid.\n", "1");
+
+            if (EvtGetExtendedStatus(SYSLOG_DEF_SZ, error_msg, &used) == ERROR_SUCCESS)
+                Log(LOG_ERROR, "%S", error_msg);
+        }
+        else
+            Log(LOG_ERROR | LOG_SYS, "EvtSubscribe failed with %lu.\n", status);
+
+        WinEventCancelSubscribes();
+        return ERR_FAIL;
+    }
+
+    return ERROR_SUCCESS;
+}
+
+void CreateQueryString(WCHAR * pQueryL, EventList * ignore_list)
+{
+    WCHAR query[QUERY_SZ];
+    int queries = 0;
+    int i = 0;
+
+    wcscpy_s(pQueryL, QUERY_LIST_SZ, L"<QueryList>");
+    for (i = 0; i < WinEventlogCount; i++) {
+        swprintf_s(query, QUERY_SZ,
+            L"<Query Id='%i' Path='%s'><Select Path='%s'>*</Select></Query>",
+            queries,
+            WinEventlogList[i].name,
+            WinEventlogList[i].name
+        );
+
+        wcscat_s(pQueryL, QUERY_LIST_SZ, query);
+        queries++;
+    }
+    wcscat_s(pQueryL, QUERY_LIST_SZ, L"</QueryList>");
+    wprintf(L"%s\n", pQueryL);
+}
+
+void WinEventCancelSubscribes()
+{
+    if (WinEventSub != NULL)
+        EvtClose(WinEventSub);
+}
+
+DWORD WINAPI WinEventCallback(EVT_SUBSCRIBE_NOTIFY_ACTION action, PVOID pIgnoreList, EVT_HANDLE hEvent)
+{
+    EventList * IgnoredEvents = (EventList *)pIgnoreList;
+    DWORD status = ERROR_SUCCESS;
+
+    switch(action)
+    {
+        case EvtSubscribeActionError:
+            if (ERROR_EVT_QUERY_RESULT_STALE == (DWORD)hEvent)
+            {
+                Log(LOG_WARNING, "The subscription callback was notified that event records are missing.");
+            }
+            else
+            {
+                Log(LOG_WARNING | LOG_SYS, "The subscription callback received the following Win32 error: %lu", (DWORD)hEvent);
+            }
+            break;
+
+        case EvtSubscribeActionDeliver:
+            status = ProcessEvent(hEvent, IgnoredEvents);
+            break;
+
+        default:
+            Log(LOG_WARNING, "SubscriptionCallback: Unknown action.");
+    }
+
+    if (status == ERR_FAIL)
+    {
+		Log(LOG_ERROR | LOG_SYS, "Error sending log message");
+
+        WinEventCancelSubscribes();
+        ServiceIsRunning = FALSE;
+    }
+
+    return status; // The service ignores the returned status.
+}
+
 /* Get specific values from an event */
 PEVT_VARIANT GetEventInfo(EVT_HANDLE hEvent)
 {
@@ -159,6 +264,200 @@ LPWSTR GetMessageString(EVT_HANDLE hMetadata, EVT_HANDLE hEvent)
 
 	/* Success */
 	return pBuffer;
+}
+
+/* Process a given event */
+DWORD ProcessEvent(EVT_HANDLE hEvent, EventList * ignore_list)
+{
+    EVT_HANDLE hProviderMetadata = NULL;
+	PEVT_VARIANT eventInfo = NULL;
+    LPWSTR pwsMessage = NULL;
+    LPWSTR pwszPublisherName = NULL;
+	ULONGLONG eventTime;
+	ULONGLONG keyword;
+    DWORD status = ERROR_SUCCESS;
+	int event_id = 0;
+	int winlevel = 0;
+	int level = 0;
+
+	BOOL bFilter = FALSE;
+
+	char mbsource[SOURCE_SZ];
+	WCHAR source[SOURCE_SZ];
+	WCHAR hostname[HOSTNAME_SZ];
+	WCHAR * formatted_string = NULL;
+	WCHAR * tstamp = NULL;
+	WCHAR * index = NULL;
+	WCHAR defmsg[ERRMSG_SZ];
+	WCHAR tstamped_message[SYSLOG_DEF_SZ];
+
+    /* Get and store the publishers new Windows Events name */
+	eventInfo = GetEventInfo(hEvent);
+	if (eventInfo) {
+		pwszPublisherName = (LPWSTR)eventInfo[0].StringVal;
+	}
+	else {
+		return ERR_CONTINUE;
+	}
+	eventTime = eventInfo[1].FileTimeVal;
+	event_id = eventInfo[2].UInt16Val;
+
+	/* Check for the "Microsoft-Windows-" prefix in the publisher name */
+	/* and remove it if found. Saves 18 characters in the message */
+	if(wcsncmp(pwszPublisherName, L"Microsoft-Windows-", 18) == 0)
+		wcsncpy_s(source, COUNT_OF(source), pwszPublisherName+18, _TRUNCATE);
+	else
+		wcsncpy_s(source, COUNT_OF(source), pwszPublisherName, _TRUNCATE);
+
+	/* Check Event Info Against Ignore List */
+	WideCharToMultiByte(CP_UTF8, 0, source, -1, mbsource, SOURCE_SZ, NULL, NULL);
+    if (IgnoreSyslogEvent(ignore_list, mbsource, event_id)) {
+		if (LogInteractive)
+			printf("IGNORING_EVENT: SOURCE=%s & ID=%i\n", mbsource, event_id);
+		bFilter = TRUE;
+	} else {
+		bFilter = FALSE;
+	}
+
+	/* Format Event Timestamp */
+	if ((tstamp = WinEvtTimeToString(eventTime)) == NULL)
+		tstamp = L"TIME_ERROR";
+
+	/* Add hostname for RFC compliance (RFC 3164) */
+	if (ExpandEnvironmentStringsW(L"%COMPUTERNAME%", hostname, COUNT_OF(hostname)) == 0) {
+		wcscpy_s(hostname, COUNT_OF(hostname), L"HOSTNAME_ERR");
+		Log(LOG_ERROR|LOG_SYS, "Cannot expand %COMPUTERNAME%");
+	}
+
+	/* replace every space in source by underscores */
+	index = source;
+	while( *index ) {
+		if( *index == L' ' ) {
+			*index = L'_';
+		}
+		index++;
+	}
+
+	/* Add Timestamp and hostname then format source & event ID for consistency with Event Viewer */
+    if(SyslogIncludeTag)
+    {
+        _snwprintf_s(tstamped_message, COUNT_OF(tstamped_message), _TRUNCATE, L"%s %s %S: %s: %i: ",
+            tstamp,
+            hostname,
+            SyslogTag,
+            source,
+            event_id
+        );
+    }
+    else
+    {
+        _snwprintf_s(tstamped_message, COUNT_OF(tstamped_message), _TRUNCATE, L"%s %s %s: %i: ",
+            tstamp,
+            hostname,
+            source,
+            event_id
+        );
+    }
+
+	/* Get the handle to the provider's metadata that contains the message strings. */
+	hProviderMetadata = EvtOpenPublisherMetadata(NULL, pwszPublisherName, NULL, 0, 0);
+	if (NULL == hProviderMetadata) {
+		if (LogInteractive)
+			Log(LOG_ERROR|LOG_SYS, "OpenPublisherMetadata failed for Publisher: \"%S\"", source);
+		return ERR_CONTINUE;
+	}
+
+	/* Get the message string from the event */
+	pwsMessage = GetMessageString(hProviderMetadata, hEvent);
+	if (pwsMessage == NULL) {
+		Log(LOG_ERROR|LOG_SYS, "Error getting message string for event DETAILS: Publisher: %S EventID: %i", source, event_id);
+		return ERR_CONTINUE;
+	}
+
+	/* Get string and strip whitespace */
+	formatted_string = CollapseExpandMessageW(pwsMessage);
+
+	/* Create a default message if resources or formatting didn't work */
+	if (formatted_string == NULL) {
+        if(SyslogIncludeTag)
+        {
+		    _snwprintf_s(defmsg, COUNT_OF(defmsg), _TRUNCATE,
+                L"%S: (Facility: %u, Status: %s)",
+                SyslogTag,
+			    HRESULT_FACILITY(event_id),
+			    FAILED(event_id) ? L"Failure" : L"Success"
+		    );
+        }
+        else
+        {
+            _snwprintf_s(defmsg, COUNT_OF(defmsg), _TRUNCATE,
+                L"(Facility: %u, Status: %s)",
+			    HRESULT_FACILITY(event_id),
+			    FAILED(event_id) ? L"Failure" : L"Success"
+		    );
+        }
+		formatted_string = defmsg;
+	}
+
+	/* Combine the message strings */
+	wcsncat_s(tstamped_message, COUNT_OF(tstamped_message), formatted_string, _TRUNCATE);
+
+	/* Get Event Error Level. In the case of Security Events,
+	 * set Failures to Error instead of notice using the
+	 * keyword attribute
+	 */
+	keyword = (EvtVarTypeNull == eventInfo[4].Type) ? 0 : eventInfo[4].UInt64Val;
+	if ((keyword & WINEVENT_KEYWORD_AUDIT_FAILURE) != 0)
+		winlevel = WINEVENT_ERROR_LEVEL;
+	else
+		winlevel = (int)eventInfo[3].ByteVal;
+
+	/* Select syslog level */
+	switch (winlevel) {
+		case WINEVENT_CRITICAL_LEVEL:
+			level = SYSLOG_BUILD(SyslogFacility, SYSLOG_CRIT);
+			break;		
+		case WINEVENT_ERROR_LEVEL:
+			level = SYSLOG_BUILD(SyslogFacility, SYSLOG_ERR);
+			break;
+		case WINEVENT_WARNING_LEVEL:
+			level = SYSLOG_BUILD(SyslogFacility, SYSLOG_WARNING);
+			break;
+		case WINEVENT_INFORMATION_LEVEL:
+			level = SYSLOG_BUILD(SyslogFacility, SYSLOG_NOTICE);
+			break;
+		case WINEVENT_AUDIT_LEVEL:
+			level = SYSLOG_BUILD(SyslogFacility, SYSLOG_NOTICE);
+			break;
+		case WINEVENT_VERBOSE_LEVEL:
+			level = SYSLOG_BUILD(SyslogFacility, SYSLOG_DEBUG);
+			break;
+
+		/* Everything else */
+		default:
+			level = SYSLOG_BUILD(SyslogFacility, SYSLOG_NOTICE);
+			break;
+	}
+
+	/* Send the event to the Syslog Server */
+	/* If event is not being ignored, make sure it is severe enough to be logged */
+	if (!bFilter)
+		if (SyslogLogLevel == 0 || (SyslogLogLevel >= (DWORD)winlevel && winlevel > 0))
+			if (SyslogSendW(tstamped_message, level))
+				status = ERR_FAIL;
+
+	/* Cleanup memory and open handles */
+	if(pwsMessage)
+		free(pwsMessage);
+	if(eventInfo)
+		free(eventInfo);
+
+	if (hProviderMetadata)
+		EvtClose(hProviderMetadata);
+	if (hEvent)
+		EvtClose(hEvent);
+
+	return status;
 }
 
 /* Create new eventlog descriptor */
@@ -283,35 +582,16 @@ EVT_HANDLE WinEventQuery(LPWSTR pwsQuery)
 }
 
 /* Get the next eventlog message */
-WCHAR * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
+DWORD WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 {
-    EVT_HANDLE hProviderMetadata = NULL;
     EVT_HANDLE hResult = NULL;
     EVT_HANDLE hEvent = NULL;
-	PEVT_VARIANT eventInfo = NULL;
+	LPWSTR pwsQuery = NULL;
+
     DWORD status = ERROR_SUCCESS;
     DWORD dwBufferNeeded = 0;
 	DWORD dwBufferSize = 512;
-    LPWSTR pwsMessage = NULL;
-    LPWSTR pwszPublisherName = NULL;
-	LPWSTR pwsQuery = NULL;
-	ULONGLONG eventTime;
-	ULONGLONG keyword;
-	int event_id = 0;
-	int winlevel = 0;
-	int level = 0;
-
-	BOOL reopen = FALSE;
-	BOOL bFilter = FALSE;
-
-	char mbsource[SOURCE_SZ];
-	WCHAR source[SOURCE_SZ];
-	WCHAR hostname[HOSTNAME_SZ];
-	WCHAR * formatted_string = NULL;
-	WCHAR * tstamp = NULL;
-	WCHAR * index = NULL;
-	WCHAR defmsg[ERRMSG_SZ];
-	WCHAR tstamped_message[SYSLOG_DEF_SZ];
+    BOOL reopen = FALSE;
 
 	pwsQuery = (LPWSTR)malloc(QUERY_SZ);
 
@@ -352,19 +632,19 @@ WCHAR * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 				case ERROR_HANDLE_EOF:
 					if (LogInteractive)
 						Log(LOG_INFO, "End of Eventlog: \"%S\"", WinEventlogList[log].name);
-					return NULL;
+					return ERR_FAIL;
 
 				/* Eventlog probably closing down */
 				case RPC_S_UNKNOWN_IF:
 					if (LogInteractive)
 						Log(LOG_INFO, "Eventlog appears to be shutting down: \"%S\"", WinEventlogList[log].name);
-					return NULL;
+					return ERR_FAIL;
 
 				/* Unknown condition */
 				default:
 					Log(LOG_ERROR|LOG_SYS, "Eventlog \"%S\" returned error", WinEventlogList[log].name);
 					ServiceIsRunning = FALSE;
-					return NULL;
+					return ERR_FAIL;
 			}
 		}
 
@@ -374,7 +654,7 @@ WCHAR * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 			if (WinEventlogOpen(log) != 0) {
 				Log(LOG_INFO, "Error reopening Log: %S", WinEventlogList[log].name);
 				ServiceIsRunning = FALSE;
-				return NULL;
+				return ERR_FAIL;
 			}
 			WinEventlogClose(log);
 			if (hResult)
@@ -410,180 +690,12 @@ WCHAR * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
                     WinEventlogList[log].recnum++;
                     continue;
                 }
-				
 			}
 		}
 		/* Increase record number */
 		WinEventlogList[log].recnum++;
 
-		/* Get and store the publishers new Windows Events name */
-		eventInfo = GetEventInfo(hEvent);
-		if (eventInfo) {
-			pwszPublisherName = (LPWSTR)eventInfo[0].StringVal;
-		}
-		else {
-			continue;
-		}
-		eventTime = eventInfo[1].FileTimeVal;
-		event_id = eventInfo[2].UInt16Val;
-
-		/* Check for the "Microsoft-Windows-" prefix in the publisher name */
-		/* and remove it if found. Saves 18 characters in the message */
-		if(wcsncmp(pwszPublisherName, L"Microsoft-Windows-", 18) == 0)
-			wcsncpy_s(source, COUNT_OF(source), pwszPublisherName+18, _TRUNCATE);
-		else
-			wcsncpy_s(source, COUNT_OF(source), pwszPublisherName, _TRUNCATE);
-
-		/* Check Event Info Against Ignore List */
-		WideCharToMultiByte(CP_UTF8, 0, source, -1, mbsource, SOURCE_SZ, NULL, NULL);
-		if (IgnoreSyslogEvent(ignore_list, mbsource, event_id)) {
-			if (LogInteractive)
-				printf("IGNORING_EVENT: SOURCE=%s & ID=%i\n", mbsource, event_id);
-			bFilter = TRUE;
-		} else {
-			bFilter = FALSE;
-		}
-
-		/* Format Event Timestamp */
-		if ((tstamp = WinEvtTimeToString(eventTime)) == NULL)
-			tstamp = L"TIME_ERROR";
-
-		/* Add hostname for RFC compliance (RFC 3164) */
-		if (ExpandEnvironmentStringsW(L"%COMPUTERNAME%", hostname, COUNT_OF(hostname)) == 0) {
-			wcscpy_s(hostname, COUNT_OF(hostname), L"HOSTNAME_ERR");
-			Log(LOG_ERROR|LOG_SYS, "Cannot expand %COMPUTERNAME%");
-		}
-
-		/* replace every space in source by underscores */
-		index = source;
-		while( *index ) {
-			if( *index == L' ' ) {
-				*index = L'_';
-			}
-			index++;
-		}
-
-		/* Add Timestamp and hostname then format source & event ID for consistency with Event Viewer */
-        if(SyslogIncludeTag)
-        {
-            _snwprintf_s(tstamped_message, COUNT_OF(tstamped_message), _TRUNCATE, L"%s %s %S: %s: %i: ",
-                tstamp,
-                hostname,
-                SyslogTag,
-                source,
-                event_id
-            );
-        }
-        else
-        {
-            _snwprintf_s(tstamped_message, COUNT_OF(tstamped_message), _TRUNCATE, L"%s %s %s: %i: ",
-                tstamp,
-                hostname,
-                source,
-                event_id
-            );
-        }
-
-		/* Get the handle to the provider's metadata that contains the message strings. */
-		hProviderMetadata = EvtOpenPublisherMetadata(NULL, pwszPublisherName, NULL, 0, 0);
-		if (NULL == hProviderMetadata) {
-			if (LogInteractive)
-				Log(LOG_ERROR|LOG_SYS, "OpenPublisherMetadata failed for Publisher: \"%S\"", source);
-			continue;
-		}
-
-		/* Get the message string from the event */
-		pwsMessage = GetMessageString(hProviderMetadata, hEvent);
-		if (pwsMessage == NULL) {
-			Log(LOG_ERROR|LOG_SYS, "Error getting message string for RecordID: %i in Log: %S DETAILS: Publisher: %S EventID: %i", WinEventlogList[log].recnum, WinEventlogList[log].name, source, event_id);
-			continue;
-		}
-
-		/* Get string and strip whitespace */
-		formatted_string = CollapseExpandMessageW(pwsMessage);
-
-		/* Create a default message if resources or formatting didn't work */
-		if (formatted_string == NULL) {
-            if(SyslogIncludeTag)
-            {
-			    _snwprintf_s(defmsg, COUNT_OF(defmsg), _TRUNCATE,
-                    L"%S: (Facility: %u, Status: %s)",
-                    SyslogTag,
-				    HRESULT_FACILITY(event_id),
-				    FAILED(event_id) ? L"Failure" : L"Success"
-			    );
-            }
-            else
-            {
-                _snwprintf_s(defmsg, COUNT_OF(defmsg), _TRUNCATE,
-                    L"(Facility: %u, Status: %s)",
-				    HRESULT_FACILITY(event_id),
-				    FAILED(event_id) ? L"Failure" : L"Success"
-			    );
-            }
-			formatted_string = defmsg;
-		}
-
-		/* Combine the message strings */
-		wcsncat_s(tstamped_message, COUNT_OF(tstamped_message), formatted_string, _TRUNCATE);
-
-		/* Get Event Error Level. In the case of Security Events,
-		 * set Failures to Error instead of notice using the
-		 * keyword attribute
-		 */
-		keyword = (EvtVarTypeNull == eventInfo[4].Type) ? 0 : eventInfo[4].UInt64Val;
-		if ((keyword & WINEVENT_KEYWORD_AUDIT_FAILURE) != 0)
-			winlevel = WINEVENT_ERROR_LEVEL;
-		else
-			winlevel = (int)eventInfo[3].ByteVal;
-
-		/* Select syslog level */
-		switch (winlevel) {
-			case WINEVENT_CRITICAL_LEVEL:
-				level = SYSLOG_BUILD(SyslogFacility, SYSLOG_CRIT);
-				break;		
-			case WINEVENT_ERROR_LEVEL:
-				level = SYSLOG_BUILD(SyslogFacility, SYSLOG_ERR);
-				break;
-			case WINEVENT_WARNING_LEVEL:
-				level = SYSLOG_BUILD(SyslogFacility, SYSLOG_WARNING);
-				break;
-			case WINEVENT_INFORMATION_LEVEL:
-				level = SYSLOG_BUILD(SyslogFacility, SYSLOG_NOTICE);
-				break;
-			case WINEVENT_AUDIT_LEVEL:
-				level = SYSLOG_BUILD(SyslogFacility, SYSLOG_NOTICE);
-				break;
-			case WINEVENT_VERBOSE_LEVEL:
-				level = SYSLOG_BUILD(SyslogFacility, SYSLOG_DEBUG);
-				break;
-
-			/* Everything else */
-			default:
-				level = SYSLOG_BUILD(SyslogFacility, SYSLOG_NOTICE);
-				break;
-		}
-
-		/* Send the event to the Syslog Server */
-		/* If event is not being ignored, make sure it is severe enough to be logged */
-		if (!bFilter)
-			if (SyslogLogLevel == 0 || (SyslogLogLevel >= (DWORD)winlevel && winlevel > 0))
-				if (SyslogSendW(tstamped_message, level))
-					status = ERR_FAIL;
-
-		/* Cleanup memory and open handles */
-		if(pwsMessage)
-			free(pwsMessage);
-		if(eventInfo)
-			free(eventInfo);
-
-		if (hProviderMetadata)
-			EvtClose(hProviderMetadata);
-		if (hEvent)
-			EvtClose(hEvent);
-
-		if (status == ERR_FAIL)
-			break;
+		status = ProcessEvent(hEvent, ignore_list);
 
 	}while (reopen);
 	
@@ -595,10 +707,10 @@ WCHAR * WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
 
 	if (status == ERR_FAIL) {
 		Log(LOG_INFO, "Status = ERR_FAIL - Log: \"%S\" & RecNum: %i", WinEventlogList[log].name, WinEventlogList[log].recnum);
-		return NULL; /* Return Failure */
+		return ERR_FAIL; /* Return Failure */
 	}
 	else
-		return L"1"; /* Return Success*/
+		return ERROR_SUCCESS; /* Return Success*/
 }
 
 /* Format Timestamp from EventLog */

@@ -342,17 +342,20 @@ int main(int argc, char ** argv)
 /* Shut down the console cleanly */
 BOOL WINAPI ShutdownConsole(DWORD dwCtrlType)
 {
+    Log(LOG_INFO, "Signal caught, shutting down and exiting...");
     switch(dwCtrlType)
     {
         case CTRL_C_EVENT:
         case CTRL_BREAK_EVENT:
         case CTRL_CLOSE_EVENT:
+            if (CheckForWindowsEvents())
+                WinEventCancelSubscribes();
+            EventlogsClose();
             SyslogClose();
             break;
         default:
             return FALSE;
     }
 
-    Log(LOG_INFO, "Signal caught, shutting down and exiting...");
     exit(0);
 }

@@ -40,7 +40,7 @@ OFILES=check.obj eventlog.obj getopt.obj log.obj loop.obj main.obj registry.obj 
 all:		evtsys.exe evtsys.dll
 
 evtsys.exe:	$(OFILES) verexe.res
-		link /INCREMENTAL:NO /DEBUG /OPT:REF /OPT:ICF /RELEASE /PDBPATH:none /map:evtsys.map /DELAYLOAD:wevtapi.dll /out:evtsys.exe $(OFILES) verexe.res $(SYS_LIB)
+		link /INCREMENTAL:NO /DEBUG /OPT:REF /OPT:ICF /RELEASE /map:evtsys.map /DELAYLOAD:wevtapi.dll /out:evtsys.exe $(OFILES) verexe.res $(SYS_LIB)
 
 check.obj:	check.c
 		cl $(CFLAGS) /c /MT check.c
@@ -107,7 +107,7 @@ clean:
 		-del dllmsg.h
 		-del msg00001.bin
 		-del evtsys.pdb
-		-del vc90.pdb
+		-del vc100.pdb
 		-del *.res
 		-del *.obj
 
