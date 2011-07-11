@@ -117,7 +117,7 @@ void EventlogsClose()
 {
 	int i;
 
-	/* Loop until list depleated */
+	/* Loop until list depleted */
 	for (i = 0; i < EventlogCount; i++)
 		if (EventlogList[i].handle)
 			EventlogClose(i);
