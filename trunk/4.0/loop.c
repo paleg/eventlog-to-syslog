@@ -95,9 +95,7 @@ int MainLoop()
 	if (winEvents == FALSE) {
 		if (EventlogsOpen())
 			return 1;
-	} else
-		if (WinEventlogsOpen())
-			return 1;
+	}
 
 	/* Service is now running */
 	Log(LOG_INFO, "Eventlog to Syslog Service Started: Version %s (%s-bit)", VERSION,
