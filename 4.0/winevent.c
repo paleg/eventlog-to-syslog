@@ -50,6 +50,10 @@
 #pragma comment(lib, "delayimp.lib") /* Prevents winevt from loading unless necessary */
 #pragma comment(lib, "wevtapi.lib")	 /* New Windows Events logging library for Vista and beyond */
 
+/* Prototypes */
+DWORD ProcessEvent(EVT_HANDLE hEvent, EventList * IgnoreList);
+DWORD WINAPI WinEventCallback(EVT_SUBSCRIBE_NOTIFY_ACTION action, PVOID pContext, EVT_HANDLE hEvent);
+
 /* Number of eventlogs */
 #define WIN_EVENTLOG_SZ		32
 
@@ -66,6 +70,7 @@ int WinEventlogCount = 0;
 
 EVT_HANDLE WinEventSub = NULL;
 
+ /* Subscribe to new events */
 DWORD WinEventSubscribe(EventList * IgnoredEvents)
 {
     LPWSTR error_msg = NULL;
@@ -104,6 +109,7 @@ DWORD WinEventSubscribe(EventList * IgnoredEvents)
     return ERROR_SUCCESS;
 }
 
+/* Create an XML query string for subscription */
 void CreateQueryString(WCHAR * pQueryL, EventList * ignore_list)
 {
     WCHAR query[QUERY_SZ];
@@ -112,6 +118,7 @@ void CreateQueryString(WCHAR * pQueryL, EventList * ignore_list)
 
     wcscpy_s(pQueryL, QUERY_LIST_SZ, L"<QueryList>");
     for (i = 0; i < WinEventlogCount; i++) {
+
         swprintf_s(query, QUERY_SZ,
             L"<Query Id='%i' Path='%s'><Select Path='%s'>*</Select></Query>",
             queries,
@@ -123,15 +130,16 @@ void CreateQueryString(WCHAR * pQueryL, EventList * ignore_list)
         queries++;
     }
     wcscat_s(pQueryL, QUERY_LIST_SZ, L"</QueryList>");
-    wprintf(L"%s\n", pQueryL);
 }
 
+/* Cancel the subscription */
 void WinEventCancelSubscribes()
 {
     if (WinEventSub != NULL)
         EvtClose(WinEventSub);
 }
 
+/* This function is called whenever a matching event is triggered */
 DWORD WINAPI WinEventCallback(EVT_SUBSCRIBE_NOTIFY_ACTION action, PVOID pIgnoreList, EVT_HANDLE hEvent)
 {
     EventList * IgnoredEvents = (EventList *)pIgnoreList;
@@ -320,7 +328,7 @@ DWORD ProcessEvent(EVT_HANDLE hEvent, EventList * ignore_list)
 	}
 
 	/* Format Event Timestamp */
-	if ((tstamp = WinEvtTimeToString(eventTime)) == NULL)
+	if ((tstamp = WinEventTimeToString(eventTime)) == NULL)
 		tstamp = L"TIME_ERROR";
 
 	/* Add hostname for RFC compliance (RFC 3164) */
@@ -479,242 +487,8 @@ int WinEventlogCreate(char * name)
 	return 0;
 }
 
-/* Close eventlog */
-static void WinEventlogClose(int log)
-{
-	/* Close log */
-	CloseEventLog(WinEventlogList[log].handle);
-	WinEventlogList[log].handle = NULL;
-}
-
-/* Close eventlogs */
-void WinEventlogsClose()
-{
-	int i;
-
-	/* Loop until list depleated */
-	for (i = 0; i < WinEventlogCount; i++)
-		if (WinEventlogList[i].handle)
-			WinEventlogClose(i);
-
-	/* Reset count */
-	WinEventlogCount = 0;
-}
-
-/* Open event log */
-static int WinEventlogOpen(int log)
-{
-	DWORD count;
-	DWORD oldest;
-
-	/* Reset all indicators */
-	WinEventlogList[log].recnum = 1;
-
-	/* Open log */
-	WinEventlogList[log].handle = OpenEventLogW(NULL, WinEventlogList[log].name);
-	if (WinEventlogList[log].handle == NULL) {
-		Log(LOG_ERROR|LOG_SYS, "Cannot open event log: \"%S\"", WinEventlogList[log].name);
-		return 1;
-	}
-
-	/* Get number of records to skip */
-	if (GetNumberOfEventLogRecords(WinEventlogList[log].handle, &count) == 0) {
-		Log(LOG_ERROR|LOG_SYS, "Cannot get record count for event log: \"%S\"", WinEventlogList[log].name);
-		return 1;
-	}
-
-	/* Get oldest record number */
-	if (GetOldestEventLogRecord(WinEventlogList[log].handle, &oldest) == 0 && count != 0) {
-		Log(LOG_ERROR|LOG_SYS, "Cannot get oldest record number for event log: \"%S\"", WinEventlogList[log].name);
-		return 1;
-	}
-
-	/* Store record of next event */
-	WinEventlogList[log].recnum = oldest + count;
-	if (WinEventlogList[log].recnum == 0)
-		WinEventlogList[log].recnum = 1; /* ?? */
-
-	/* Success */
-	return 0;
-}
-
-/* Open WinEvent logs */
-int WinEventlogsOpen()
-{
-	int i;
-
-	/* Open the log files */
-	for (i = 0; i < WinEventlogCount; i++)
-		if (WinEventlogOpen(i))
-			break;
-
-	/* Check for errors */
-	if (i != WinEventlogCount) {
-		EventlogsClose();
-		return 1;
-	} else
-		EventlogsClose(); /* Handle not necessary for new API */
-
-	/* Success */
-	return 0;
-}
-
-/* Run query for Events */
-EVT_HANDLE WinEventQuery(LPWSTR pwsQuery)
-{
-	EVT_HANDLE hResult;
-	DWORD status;
-
-	/* Query for an event. */
-	hResult = EvtQuery(NULL, NULL, pwsQuery, EvtQueryChannelPath);
-	if (NULL == hResult) {
-		status = GetLastError();
-
-		if (status == ERROR_EVT_CHANNEL_NOT_FOUND)
-			Log(LOG_ERROR, "EvtQuery: Channel \"%S\" was not found",pwsQuery);
-		else if (status == RPC_S_UNKNOWN_IF)
-			Log(LOG_ERROR|LOG_SYS, "Error: Eventlog Service appears to be shutting down");
-		else
-			Log(LOG_ERROR|LOG_SYS, "EvtQuery failed");
-	}
-
-	return hResult;
-}
-
-/* Get the next eventlog message */
-DWORD WinEventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log)
-{
-    EVT_HANDLE hResult = NULL;
-    EVT_HANDLE hEvent = NULL;
-	LPWSTR pwsQuery = NULL;
-
-    DWORD status = ERROR_SUCCESS;
-    DWORD dwBufferNeeded = 0;
-	DWORD dwBufferSize = 512;
-    BOOL reopen = FALSE;
-
-	pwsQuery = (LPWSTR)malloc(QUERY_SZ);
-
-	/* Create the query to pull the specified event */
-	swprintf_s(
-		pwsQuery,
-		QUERY_SZ/sizeof(WCHAR),
-		L"<QueryList><Query Path='%s'><Select>*[System[EventRecordID >= %i]]</Select></Query></QueryList>",
-		WinEventlogList[log].name,
-		WinEventlogList[log].recnum
-	);
-
-	do {
-		hResult = WinEventQuery(pwsQuery);
-		if (hResult == NULL) {
-			/* Check error */
-			status = GetLastError();
-			switch (status) {
-				/* Eventlog corrupted (?)... Reopen */
-				case ERROR_EVENTLOG_FILE_CORRUPT:
-					Log(LOG_INFO, "Eventlog was corrupted: \"%S\"", WinEventlogList[log].name);
-					reopen = TRUE;
-					break;
-
-				/* Eventlog files are clearing... Reopen */
-				case ERROR_EVENTLOG_FILE_CHANGED:
-					Log(LOG_INFO, "Eventlog was cleared: \"%S\"", WinEventlogList[log].name);
-					reopen = TRUE;
-					break;
-
-				/* Record not available (yet) */
-				case ERROR_INVALID_PARAMETER:
-					if (LogInteractive)
-						Log(LOG_INFO|LOG_SYS, "Invalid Parameter in Log: \"%S\"", WinEventlogList[log].name);
-					continue;
-
-				/* Normal end of eventlog messages */
-				case ERROR_HANDLE_EOF:
-					if (LogInteractive)
-						Log(LOG_INFO, "End of Eventlog: \"%S\"", WinEventlogList[log].name);
-					return ERR_FAIL;
-
-				/* Eventlog probably closing down */
-				case RPC_S_UNKNOWN_IF:
-					if (LogInteractive)
-						Log(LOG_INFO, "Eventlog appears to be shutting down: \"%S\"", WinEventlogList[log].name);
-					return ERR_FAIL;
-
-				/* Unknown condition */
-				default:
-					Log(LOG_ERROR|LOG_SYS, "Eventlog \"%S\" returned error", WinEventlogList[log].name);
-					ServiceIsRunning = FALSE;
-					return ERR_FAIL;
-			}
-		}
-
-		/* Process reopen */
-		if (reopen) {
-			Log(LOG_INFO, "Reopening Log: %S", WinEventlogList[log].name);
-			if (WinEventlogOpen(log) != 0) {
-				Log(LOG_INFO, "Error reopening Log: %S", WinEventlogList[log].name);
-				ServiceIsRunning = FALSE;
-				return ERR_FAIL;
-			}
-			WinEventlogClose(log);
-			if (hResult)
-				EvtClose(hResult);
-			reopen = FALSE;
-		}
-	}while (reopen);
-
-	reopen = TRUE;
-	do {
-		/* Loop through the result set. */
-		if (!EvtNext(hResult, 1, &hEvent, TIMEOUT, 0, &dwBufferNeeded)) {
-			/* If the last call timed out try it again one more time */
-			if ((status = GetLastError()) == ERROR_TIMEOUT)
-				EvtNext(hResult, 1, &hEvent, TIMEOUT, 0, &dwBufferNeeded);
-
-			if ((status = GetLastError()) == ERROR_NO_MORE_ITEMS) {
-				reopen = FALSE;
-				break;
-			} else if (status != ERROR_SUCCESS) {
-				if (status == ERROR_TIMEOUT && LogInteractive)
-                {
-					Log(LOG_INFO, "EvtNext: Timed out trying to get event from Log'%S' with RecordID: %i. Trying again",
-						WinEventlogList[log].name, WinEventlogList[log].recnum
-					);
-                    continue;
-                }
-				else
-                {
-					Log(LOG_ERROR|LOG_SYS, "EvtNext: Error getting event from Log: '%S' with RecordID: %i",
-						WinEventlogList[log].name, WinEventlogList[log].recnum
-					);
-                    WinEventlogList[log].recnum++;
-                    continue;
-                }
-			}
-		}
-		/* Increase record number */
-		WinEventlogList[log].recnum++;
-
-		status = ProcessEvent(hEvent, ignore_list);
-
-	}while (reopen);
-	
-	if(pwsQuery)
-		free(pwsQuery);
-
-    if (hResult)
-        EvtClose(hResult);
-
-	if (status == ERR_FAIL) {
-		Log(LOG_INFO, "Status = ERR_FAIL - Log: \"%S\" & RecNum: %i", WinEventlogList[log].name, WinEventlogList[log].recnum);
-		return ERR_FAIL; /* Return Failure */
-	}
-	else
-		return ERROR_SUCCESS; /* Return Success*/
-}
-
 /* Format Timestamp from EventLog */
-WCHAR * WinEvtTimeToString(ULONGLONG ulongTime)
+WCHAR * WinEventTimeToString(ULONGLONG ulongTime)
 {
 	SYSTEMTIME sysTime;
 	FILETIME fTime, lfTime;
