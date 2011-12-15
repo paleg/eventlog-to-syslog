@@ -95,7 +95,9 @@ int MainLoop()
 	if (winEvents == FALSE) {
 		if (EventlogsOpen())
 			return 1;
-	}
+	} else
+		if (WinEventlogsOpen())
+			return 1;
 
 	/* Service is now running */
 	Log(LOG_INFO, "Eventlog to Syslog Service Started: Version %s (%s-bit)", VERSION,
@@ -113,52 +115,46 @@ int MainLoop()
 		SyslogStatusInterval
 	);
 
-    if (winEvents) {
-        if(WinEventSubscribe(IgnoredEvents) != ERROR_SUCCESS)
-        {
-            ServiceIsRunning = FALSE;
-        }
-    }
-
 	/* Loop while service is running */
-	while (ServiceIsRunning)
-    {
+	do {
+
 		/* Process records */
 		if (winEvents == FALSE) {
 			for (log = 0; log < EventlogCount; log++) {
 				/* Loop for all messages */
-                while ((output = EventlogNext(IgnoredEvents, log, &level))) {
-                    if (output != NULL) {
+				while ((output = EventlogNext(IgnoredEvents, log, &level)))
+					if (output != NULL)
 						if (SyslogSend(output, level)) {
 							ServiceIsRunning = FALSE;
 							break;
 						}
-                    }
-                }
+			}
+		} else {
+			for (log = 0; log < WinEventlogCount; log++) {
+				if (WinEventlogNext(IgnoredEvents, log) == NULL) {
+					ServiceIsRunning = FALSE;
+					break;
+				}
 			}
 		}
 		
 		/* Send status message to inform server that client is active */
-		if (SyslogStatusInterval != 0) {
+		if (SyslogStatusInterval != 0)
 			if (++stat_counter == SyslogStatusInterval*12) { // Because the service loops ~12 times/min
 				stat_counter = 0; /* Reset Counter */
 				Log(LOG_INFO, "Eventlog to Syslog Service Running");
 			}
-        }
 
 		/* Sleep five seconds */
 		Sleep(5000);
-	}
+
+	} while (ServiceIsRunning);
 
 	/* Service is stopped */
 	Log(LOG_INFO, "Eventlog to Syslog Service Stopped");
 
 	/* Close eventlogs */
-    if (winEvents)
-        WinEventCancelSubscribes();
-
 	EventlogsClose();
-    SyslogClose();
 
 	/* Success */
 	return 0;
