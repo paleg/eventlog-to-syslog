@@ -48,6 +48,9 @@
     <ClInclude Include="wsock.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="dns.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ver.rc">
@@ -95,6 +98,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="wsock.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="dns.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

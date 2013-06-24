@@ -70,7 +70,7 @@ int ServiceInstall()
 	}
 
 	/* Create a new service */
-	new_service = CreateService(service_manager, "EvtSys", "Eventlog to Syslog", SERVICE_ALL_ACCESS, SERVICE_WIN32_OWN_PROCESS, SERVICE_AUTO_START, SERVICE_ERROR_IGNORE, "%SystemRoot%\\System32\\evtsys.exe", NULL, NULL, "eventlog\0", NULL, NULL);
+	new_service = CreateService(service_manager, "EvtSys", "Eventlog to Syslog", SERVICE_ALL_ACCESS, SERVICE_WIN32_OWN_PROCESS, SERVICE_AUTO_START, SERVICE_ERROR_IGNORE, ProgramExePath, NULL, NULL, "eventlog\0", NULL, NULL);
 	if (new_service == NULL)
 		Log(LOG_ERROR|LOG_SYS, "Cannot create service");
 	else

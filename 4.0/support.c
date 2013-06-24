@@ -599,3 +599,39 @@ int ConvertLogHostToIp(char * loghost, char ** ipstr)
     /* Success */
     return 0;
 }
+
+/* Create a new configuration file */
+DWORD CreateConfigFile(char * filename)
+{
+    FILE *file;
+
+    if (fopen_s(&file, filename, "w") != 0) {
+		Log(LOG_ERROR|LOG_SYS,"File could not be created: %s", filename);
+		return -1;
+	}
+
+	fprintf_s(file, "'!!!!THIS FILE IS REQUIRED FOR THE SERVICE TO FUNCTION!!!!\n'\n");
+	fprintf_s(file, "'Comments must start with an apostrophe and\n");
+	fprintf_s(file, "'must be the only thing on that line.\n'\n");
+	fprintf_s(file, "'Do not combine comments and definitions on the same line!\n'\n");
+	fprintf_s(file, "'Format is as follows - EventSource:EventID\n");
+	fprintf_s(file, "'Use * as a wildcard to ignore all ID's from a given source\n");
+	fprintf_s(file, "'E.g. Security-Auditing:*\n'\n");
+	fprintf_s(file, "'In Vista/2k8 and upwards remove the 'Microsoft-Windows-' prefix\n");
+    fprintf_s(file, "'In Vista/2k8+ you may also specify custom XPath queries\n");
+    fprintf_s(file, "'Format is the word 'XPath' followed by a ':', the event log to search,\n");
+    fprintf_s(file, "'followed by a ':', and then the select expression\n");
+    fprintf_s(file, "'E.g XPath:Application:<expression>\n'\n");
+    fprintf_s(file, "'Details can be found in the readme file at the following location:\n");
+    fprintf_s(file, "'https://code.google.com/p/eventlog-to-syslog/downloads/list\n");
+	fprintf_s(file, "'**********************:**************************\n");
+    fprintf_s(file, "XPath:Application:<Select Path=\"Application\">*</Select>\n");
+    fprintf_s(file, "XPath:Security:<Select Path=\"Security\">*</Select>\n");
+    fprintf_s(file, "XPath:Setup:<Select Path=\"Setup\">*</Select>\n");
+    fprintf_s(file, "XPath:System:<Select Path=\"System\">*</Select>\n");
+
+	fclose (file);
+
+    /* SUCCESS */
+    return 0;
+}

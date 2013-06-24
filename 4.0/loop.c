@@ -68,7 +68,6 @@
 int MainLoop()
 {
 	char * output = NULL;
-	EventList IgnoredEvents[MAX_IGNORED_EVENTS];
 	HKEY hkey = NULL;
 	int level;
 	int log;
@@ -76,26 +75,30 @@ int MainLoop()
     BOOL winEvents;
 	FILE *fp = NULL;
 
+    EventList IgnoredEvents[MAX_IGNORED_EVENTS];
+    XPathList * XPathQueries = (XPathList*)calloc(1, sizeof(*XPathQueries));
+
     /* Check for new Crimson Log Service */
 	winEvents = CheckForWindowsEvents();
 
 	/* Grab Ignore List From File */
-	if (CheckSyslogIgnoreFile(IgnoredEvents, CONFIG_FILE) < 0)
+    if (CheckSyslogIgnoreFile(IgnoredEvents, &XPathQueries, CONFIG_FILE) < 0)
 		return 1;
 
     /* Determine whether Tag is set */
     if (strlen(SyslogTag) > 0)
         SyslogIncludeTag = TRUE;
 
-	/* Gather eventlog names */
-	if (RegistryGather(winEvents))
-		return 1;
+	if (winEvents == FALSE)
+    {
+        /* Gather eventlog names */
+        if (RegistryGather())
+		    return 1;
 
-	/* Open all eventlogs */
-	if (winEvents == FALSE) {
-		if (EventlogsOpen())
-			return 1;
-	}
+	    /* Open all eventlogs */
+	    if (EventlogsOpen())
+		    return 1;
+    }
 
 	/* Service is now running */
 	Log(LOG_INFO, "Eventlog to Syslog Service Started: Version %s (%s-bit)", VERSION,
@@ -114,7 +117,7 @@ int MainLoop()
 	);
 
     if (winEvents) {
-        if(WinEventSubscribe(IgnoredEvents) != ERROR_SUCCESS)
+        if(WinEventSubscribe(XPathQueries, XPATH_COUNT) != ERROR_SUCCESS)
         {
             ServiceIsRunning = FALSE;
         }

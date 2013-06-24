@@ -56,6 +56,7 @@
 
 /* Include files */
 #include "main.h"
+#include "dns.h"
 #include "eventlog.h"
 #include "log.h"
 #include "syslog.h"
@@ -81,7 +82,14 @@ static char * ProgramSyslogQueryDhcp = NULL;
 static char * ProgramSyslogInterval = NULL;
 static char * ProgramSyslogTag = NULL;
 static char * ProgramLogLevel = NULL;
+
+BOOL ProgramUseIPAddress = FALSE;
+char ProgramHostName[256];
+char ProgramExePath[MAX_PATH];
+char ProgramDllPath[MAX_PATH];
+
 static EventList IgnoredEvents[MAX_IGNORED_EVENTS];
+static XPathList * XPathQueries;
 
 /* Operate on program flags */
 static int mainOperateFlags()
@@ -118,6 +126,15 @@ static int mainOperateFlags()
 		return status;
 	}
 
+    /* discover our FQDN (or IP if no FQDN) */
+	if (ProgramUseIPAddress) {
+		if (get_hostname(ProgramHostName, 255) == 0) {
+			ProgramUseIPAddress = FALSE;
+			Log(LOG_ERROR, "Unable to determine IP address or FQDN for -a flag.");
+			return 1;
+		}
+	}
+
 	/* Load the current registry keys */
 	if (RegistryRead())
 		return 1;
@@ -152,20 +169,21 @@ static void mainUsage()
 #endif
 		);
 		fprintf(stderr, "Usage: %s -i|-u|-d [-h host] [-b host] [-f facility] [-p port]\n", ProgramName);
-		fputs("       [-t tag] [-s minutes] [-l level] [-n]\n", stderr);
+		fputs("       [-t tag] [-s minutes] [-l level] [-n] [-a]\n", stderr);
 		fputs("  -i           Install service\n", stderr);
 		fputs("  -u           Uninstall service\n", stderr);
 		fputs("  -d           Debug: run as console program\n", stderr);
+        fputs("  -a           Use our IP address (or fqdn) in the syslog message\n", stderr);
 		fputs("  -h host      Name of log host\n", stderr);
 		fputs("  -b host      Name of secondary log host\n", stderr);
 		fputs("  -f facility  Facility level of syslog message\n", stderr);
-		fputs("  -l level     Minimum level to send to syslog.\n", stderr);
+		fputs("  -l level     Minimum level to send to syslog\n", stderr);
 		fputs("               0=All/Verbose, 1=Critical, 2=Error, 3=Warning, 4=Info\n", stderr);
-		fputs("  -n           Include only those events specified in the config file.\n", stderr);
+		fputs("  -n           Include only those events specified in the config file\n", stderr);
 		fputs("  -p port      Port number of syslogd\n", stderr);
 		fputs("  -q bool      Query the Dhcp server to obtain the syslog/port to log to\n", stderr);
 		fputs("               (0/1 = disable/enable)\n", stderr);
-		fputs("  -t tag       Include tag as program field in syslog message.\n", stderr);
+		fputs("  -t tag       Include tag as program field in syslog message\n", stderr);
 		fputs("  -s minutes   Optional interval between status messages. 0 = Disabled\n", stderr);
 		fputc('\n', stderr);
 		fprintf(stderr, "Default port: %u\n", SYSLOG_DEF_PORT);
@@ -182,7 +200,7 @@ static int mainProcessFlags(int argc, char ** argv)
 	int flag;
 
 	/* Note all actions */
-	while ((flag = GetOpt(argc, argv, "f:iudh:b:p:q:s:l:nt:")) != EOF) {
+	while ((flag = GetOpt(argc, argv, "f:iudh:b:p:q:s:l:nat:")) != EOF) {
 		switch (flag) {
 			case 'd':
 				ProgramDebug = TRUE;
@@ -219,6 +237,9 @@ static int mainProcessFlags(int argc, char ** argv)
 				break;
 			case 't':
 				ProgramSyslogTag = GetOptArg;
+				break;
+            case 'a':
+				ProgramUseIPAddress = TRUE;
 				break;
 			default:
 				mainUsage();
@@ -286,14 +307,6 @@ static int mainProcessFlags(int argc, char ** argv)
 		if(CheckSyslogTag(ProgramSyslogTag))
 			return 1;
 
-	/* Check for Ignore File */
-	if(LogInteractive)
-		printf("Checking ignore file...\n");
-	if(CheckSyslogIgnoreFile(IgnoredEvents, CONFIG_FILE) != 0) {
-		Log(LOG_ERROR, "File Check Failed!!!");
-		return 1;
-	}
-
 	/* Proceed to do operation */
 	return mainOperateFlags();
 }
@@ -302,11 +315,24 @@ static int mainProcessFlags(int argc, char ** argv)
 int main(int argc, char ** argv)
 {
 	int status;
+    int path_ln;
 
     SetConsoleCtrlHandler(ShutdownConsole, TRUE);
 
 	/* Save program name */
 	ProgramName = argv[0];
+
+    /* Get and store executable path */
+    if (!GetModuleFileName(NULL, ProgramExePath, sizeof(ProgramExePath))) {
+        Log(LOG_ERROR, "Unable to get path to my executable");
+        return 1;
+    }
+
+    // Set extension to dll instead of exe. This assumes dll is stored alongside exe
+    path_ln = GetModuleFileName(NULL, ProgramDllPath, sizeof(ProgramDllPath));
+    ProgramDllPath[path_ln-3] = 'd';
+    ProgramDllPath[path_ln-2] = 'l';
+    ProgramDllPath[path_ln-1] = 'l';
 
 	/* Start eventlog */
 	if (LogStart()) {

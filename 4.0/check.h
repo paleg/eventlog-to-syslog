@@ -60,10 +60,23 @@
 
 /* External Variables */
 extern int IGNORED_LINES;
+extern int XPATH_COUNT;
 
 /* Ignored Events Structure */
 struct EVENT_LIST {
-	char source[50];
+	char source[SOURCE_SZ];
 	BOOL wild;
 	int id;
 };
+
+/* XPath Query Structure */
+struct XPATH_LIST {
+    char * source;
+    char * query;
+    struct XPATH_LIST* next;
+};
+
+/* Prototypes */
+XPathList* AddXPath(XPathList* xpathList, char * source, char * query);
+XPathList* CreateXPath(char * source, char * query);
+void       DeleteXPath(XPathList* oldXPath);

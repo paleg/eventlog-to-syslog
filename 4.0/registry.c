@@ -89,18 +89,18 @@ static struct RegistryData RegistryApplicationDataList[] = {
 	{ "IncludeOnly", REG_DWORD, &SyslogIncludeOnly, sizeof(SyslogIncludeOnly), FALSE },
 	{ "Tag", REG_SZ, &SyslogTag, sizeof(SyslogTag), FALSE },
 	{ "MaxMessageSize", REG_DWORD, &SyslogMessageSize, sizeof(SyslogMessageSize), FALSE },
-	{ "EnableTcp", REG_DWORD, &SyslogEnableTcp, sizeof(SyslogEnableTcp), FALSE }
+    { "UseIPAddress", REG_DWORD, &ProgramUseIPAddress, sizeof(ProgramUseIPAddress), FALSE },
+    { "EnableTcp", REG_DWORD, &SyslogEnableTcp, sizeof(SyslogEnableTcp), FALSE }
 };
 
 /* Location of eventlog data in registry tree */
 static char RegistryEventlogDataPath[] = "System\\CurrentControlSet\\Services\\EventLog\\Application\\EvtSys";
 
 /* List of eventlog data */
-static char RegistryEventlogFile[] = "%SystemRoot%\\System32\\evtsys.dll";
 static DWORD RegistryEventlogTypes = EVENTLOG_ERROR_TYPE | EVENTLOG_WARNING_TYPE | EVENTLOG_INFORMATION_TYPE;
 
 static struct RegistryData RegistrEventlogDataList[] = {
-	{ "EventMessageFile", REG_EXPAND_SZ, RegistryEventlogFile, sizeof(RegistryEventlogFile)-1 },
+	{ "EventMessageFile", REG_EXPAND_SZ, ProgramDllPath, sizeof(ProgramDllPath)-1 },
 	{ "TypesSupported", REG_DWORD, &RegistryEventlogTypes, sizeof(RegistryEventlogTypes) }
 };
 
@@ -226,7 +226,7 @@ int RegistryRead()
 }
 
 /* Gather list of keys */
-int RegistryGather(BOOL wEvents)
+int RegistryGather()
 {
 	DWORD size;
 	HKEY registry_handle;
@@ -259,13 +259,8 @@ int RegistryGather(BOOL wEvents)
 		}
 
 		/* Create new eventlog */
-		if (wEvents) {
-			if (WinEventlogCreate(name))
-				break;
-		} else {
-			if (EventlogCreate(name))
-				break;
-		}
+		if (EventlogCreate(name))
+			break;
 
 		/* Advance index number */
 		index++;

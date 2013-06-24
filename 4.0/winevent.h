@@ -38,11 +38,6 @@
 
 */
 #define TIMEOUT		5000  // 5 seconds: Defines the timeout interval for the EvtNext call
-#define QUERY_SZ	192
-#define QUERY_LIST_SZ  9600
-#define ERR_FAIL	-1
-#define ERR_CONTINUE 3
-#define SOURCE_SZ	128
 
 /* Windows Event Levels */
 #define WINEVENT_AUDIT_LEVEL		0
@@ -54,6 +49,3 @@
 
 /* Size of eventlog name */
 #define WIN_EVENTLOG_NAME_SZ	128
-
-/* Number of eventlogs */
-extern int WinEventlogCount;

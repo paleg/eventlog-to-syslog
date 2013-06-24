@@ -173,9 +173,13 @@ void Log(int level, char * message, ...)
 	}
 
 	/* Add hostname for RFC compliance (RFC 3164) */
-	if (ExpandEnvironmentStrings("%COMPUTERNAME%", hostname, sizeof(hostname)) == 0) {
-		strcpy_s(hostname, COUNT_OF(hostname), "HOSTNAME_ERR");
-		Log(LOG_ERROR|LOG_SYS, "Cannot expand %COMPUTERNAME%");
+	if (ProgramUseIPAddress == TRUE) {
+		strcpy_s(hostname, HOSTNAME_SZ, ProgramHostName);
+	} else {
+		if (ExpandEnvironmentStrings("%COMPUTERNAME%", hostname, COUNT_OF(hostname)) == 0) {
+			strcpy_s(hostname, COUNT_OF(hostname), "HOSTNAME_ERR");
+			Log(LOG_ERROR|LOG_SYS, "Cannot expand %COMPUTERNAME%");
+        }
 	}
 
 	/* Create Timestamp and add to error_message along with hostname */

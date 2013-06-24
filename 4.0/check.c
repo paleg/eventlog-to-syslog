@@ -58,9 +58,11 @@
 #include "main.h"
 #include "log.h"
 #include "syslog.h"
+#include "winevent.h"
 #include "check.h"
 
-int IGNORED_LINES;
+int IGNORED_LINES = 0;
+int XPATH_COUNT = 0;
 
 /* Facility conversion table */
 static struct {
@@ -218,32 +220,74 @@ int CheckSyslogLogHost(char * loghostarg, int ID)
 }
 
 /* Check ignore file */
-int CheckSyslogIgnoreFile(EventList * ignore_list, char * filename)
+int CheckSyslogIgnoreFile(EventList * ignore_list, XPathList ** xpath_queries, char * filename)
 {
 	FILE *file;
-	fopen_s(&file, filename, "r");
+    int err;
+	
+    err = fopen_s(&file, filename, "r");
+
+    if (err == ENOENT) {
+        Log(LOG_INFO,"Creating file with filename: %s", filename);
+
+		if (CreateConfigFile(filename) != 0)
+            return -1;
+
+        // Attemp to reopen file //
+        fopen_s(&file, filename, "r");
+    }
+    else if (file == NULL) {
+        Log(LOG_ERROR|LOG_SYS,"Error opening file: %s", filename);
+        return -1;
+    }
 
 	if (file != NULL)
 	{
-		char line[100];
-		char strDelim[] = ":";
-		char strComment[] = "'";
+		char line[QUERY_SZ + SOURCE_SZ + 8];
+		char delim[] = ":";
+		char cDelim = '\'';
 		char *strID,
-			 *strSource,
+			 *source,
 			 *next_token;
 		int comments = 1;
-		int i = 0;
+		unsigned int i = 0;
 
 		while (fgets(line, sizeof(line), file) != NULL) { /* read a line */
-			if (!(strncmp(line, strComment, 1))) {
+			if (line[0] == cDelim || strlen(line) < 1) {
 				comments++;
+                continue;
 			}
+            else {
+                size_t len;
+                int blank = 1;
+                char *ptr = line;
+
+                len = strlen(line);
+                for (i=0; i<len; i++) {
+                    if (*ptr != ' ') {
+                        blank = 0;
+                        break;
+                    }
+                    ptr++;
+                }
+
+                if (blank) continue;
+            }
+            
+            if (_strnicmp(line, "XPath", 5) == 0) {
+                XPathList* li = CheckXPath(*xpath_queries, line, delim);
+                if (li != *xpath_queries) {
+                    XPATH_COUNT++;
+                    *xpath_queries = li;
+                }
+            }
 			else {
-				strSource = strtok_s(line, strDelim, &next_token);
-				strID = strtok_s(NULL, strDelim, &next_token);
-				if (strSource == NULL || strID == NULL) {
+				source = strtok_s(line, delim, &next_token);
+				strID = strtok_s(NULL, delim, &next_token);
+				if (source == NULL || strID == NULL) {
 					Log(LOG_ERROR,"File format incorrect: %s line: %i", filename, i + comments);
-					Log(LOG_ERROR,"Format should be \"EventSource:EventID\" w/o quotes.");
+					Log(LOG_ERROR,"Format should be [EventSource:[EventID|XPath:<Query>]] w/o brackets.");
+                    fclose(file);
 					return -1;
 				}
 
@@ -258,7 +302,7 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, char * filename)
 						ignore_list[i].id = atoi(strID); /* Enter id into array */
 					}
 					/* Enter source into array */
-					strncpy_s(ignore_list[i].source, sizeof(ignore_list[i].source), strSource, _TRUNCATE);
+					strncpy_s(ignore_list[i].source, sizeof(ignore_list[i].source), source, _TRUNCATE);
 
 					//if(LogInteractive)
 						//printf("IgnoredEvents[%i].id=%i \tIgnoredEvents[%i].source=%s\n",i,ignore_list[i].id,i,ignore_list[i].source);
@@ -267,32 +311,17 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, char * filename)
 					Log(LOG_ERROR,"Config file too large. Max size is %i lines. Truncating...", MAX_IGNORED_EVENTS);
 					break;
 				}
-				i++;
+                i++;
 			}
 		}
 		fclose (file);
 		IGNORED_LINES = i;
 
-	} else {
-		Log(LOG_ERROR|LOG_SYS,"Error opening file: %s", filename);
-		Log(LOG_INFO,"Creating file with filename: %s", filename);
-
-		if (fopen_s(&file, filename, "w") != 0) {
-			Log(LOG_ERROR|LOG_SYS,"File could not be created: %s", filename);
-			return -1;
-		}
-
-		fprintf_s(file, "'!!!!THIS FILE IS REQUIRED FOR THE SERVICE TO FUNCTION!!!!\n'\n");
-		fprintf_s(file, "'Comments must start with an apostrophe and\n");
-		fprintf_s(file, "'must be the only thing on that line.\n'\n");
-		fprintf_s(file, "'Do not combine comments and definitions on the same line!\n'\n");
-		fprintf_s(file, "'Format is as follows - EventSource:EventID\n");
-		fprintf_s(file, "'Use * as a wildcard to ignore all ID's from a given source\n");
-		fprintf_s(file, "'E.g. Security-Auditing:*\n'\n");
-		fprintf_s(file, "'In Vista/2k8 and upwards remove the 'Microsoft-Windows-' prefix\n");
-		fprintf_s(file, "'**********************:**************************");
-
-		fclose (file);
+        if (LogInteractive)
+        {
+            Log(LOG_INFO, "Ignored Lines: %i", i);
+            Log(LOG_INFO, "XPath lines: %i", XPATH_COUNT);
+        }
 	}
 
 	/* Can't run as IncludeOnly with no results set to include */
@@ -306,6 +335,66 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, char * filename)
 	return 0;
 }
 
+/* Check and add XPath to list */
+XPathList* CheckXPath(XPathList * xpathList, char * line, char * delim)
+{
+    char *source = (char*)malloc(SOURCE_SZ);
+    char *xpath = (char*)malloc(QUERY_SZ);
+	char *next_token;
+
+    strtok_s(line, delim, &next_token); // Remove 'XPath' from string
+    
+    strcpy_s(source, SOURCE_SZ, strtok_s(NULL, delim, &next_token)); // Get the source after the 'XPath'
+	strcpy_s(xpath, QUERY_SZ, strtok_s(NULL, "\r\n", &next_token));  // Get the query
+	
+    if (source == NULL || xpath == NULL) {
+        Log(LOG_ERROR, "Invalid XPath config: %s", line);
+        return xpathList;
+    }
+
+    return AddXPath(xpathList, source, xpath);
+}
+
+XPathList* CreateXPath(char * source, char * query) {
+    XPathList* newXPath = (XPathList*)malloc(sizeof(XPathList));
+    if (newXPath != NULL){
+        newXPath->source = source;
+        newXPath->query = query;
+        newXPath->next = NULL;
+    }
+    
+    if (LogInteractive)
+        Log(LOG_INFO, "Creating %s", source);
+
+    return newXPath;
+}
+
+XPathList* AddXPath(XPathList* xpathList, char * source, char * query) {
+    XPathList* newXPath = CreateXPath(source, query);
+    if (newXPath != NULL) {
+        newXPath->next = xpathList;
+    }
+
+    return newXPath;
+}
+
+void DeleteXPath(XPathList* oldXPath) {
+    if (oldXPath->next != NULL) {
+        DeleteXPath(oldXPath->next);
+    }
+
+    if (LogInteractive)
+        Log(LOG_INFO, "Deleting %s", oldXPath->source);
+    
+    if (oldXPath->source != NULL)
+        free(oldXPath->source);
+
+    if (oldXPath->query != NULL)
+        free(oldXPath->query);
+
+    free(oldXPath);
+}
+
 /* Check Syslog Status Interval */
 int CheckSyslogInterval(char * interval)
 {
@@ -315,7 +404,7 @@ int CheckSyslogInterval(char * interval)
 	minutes = atoi(interval);
 
 	/* Check for valid number */
-	if (minutes < 0 || minutes > 0xffff) {
+	if (minutes < 0 || minutes > 65535) {
 		Log(LOG_ERROR, "Bad interval: %s \nMust be between 0 and 65,535 minutes", interval);
 		return 1;
 	}

@@ -64,8 +64,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
-typedef struct EVENT_LIST EventList;
+#include <errno.h>
 
 /* Macros */
 #define COUNT_OF(x)	(sizeof(x)/sizeof(*x))
@@ -76,13 +75,29 @@ typedef struct EVENT_LIST EventList;
 #define HOSTNAME_SZ 64
 #define CONFIG_FILE	"evtsys.cfg"
 
+#define QUERY_SZ	1024
+#define QUERY_LIST_SZ  524288
+#define ERR_FAIL	-1
+#define ERR_CONTINUE 3
+#define SOURCE_SZ	128
+
 /* Compatibility */
 #define in_addr_t	unsigned long
+
+typedef struct EVENT_LIST EventList;
+typedef struct XPATH_LIST XPathList;
+
+extern EventList IgnoredEvents[MAX_IGNORED_EVENTS];
+extern XPathList * XPathQueries;
+extern BOOL ProgramUseIPAddress;
+extern char ProgramHostName[256];
+extern char ProgramExePath[MAX_PATH];
+extern char ProgramDllPath[MAX_PATH];
 
 /* Prototypes */
 int     CheckForWindowsEvents();
 int     CheckSyslogFacility(char * facility);
-int     CheckSyslogIgnoreFile(EventList * ignore_list, char * filename);
+int     CheckSyslogIgnoreFile(EventList * ignore_list, XPathList ** xpath_queries, char * filename);
 int	    CheckSyslogInterval(char * interval);
 int     CheckSyslogLogHost(char * loghostarg, int ID);
 int     CheckSyslogPort(char * port);
@@ -90,11 +105,13 @@ int     CheckSyslogQueryDhcp(char * value);
 int     CheckSyslogLogLevel(char * level);
 int     CheckSyslogIncludeOnly();
 int		CheckSyslogTag(char * arg);
+XPathList* CheckXPath(XPathList * xpath_queries, char * line, char * delim);
 char*   CollapseExpandMessage(char * message);
 WCHAR*  CollapseExpandMessageW(WCHAR * message);
 int	    ConnectSocket(char * loghost, unsigned short port, int ID);
 int     ConvertLogHostToIp(char * loghost, char ** ipstr);
-void    CreateQueryString(WCHAR * pQuery, EventList * ignore_list);
+DWORD   CreateConfigFile(char * filename);
+void    CreateQueryString(WCHAR * pQuery, XPathList * xpathQueries, int qCount);
 int     EventlogCreate(char * name);
 char*   EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * level);
 void    EventlogsClose(void);
@@ -112,7 +129,7 @@ void    LogStop(void);
 void    Log(int level, char * message, ...);
 char*   LookupMessageFile(char * logtype, char * source, DWORD eventID);
 int     MainLoop(void);
-int     RegistryGather(BOOL wEvents);
+int     RegistryGather(void);
 int     RegistryInstall(void);
 int     RegistryRead(void);
 int     RegistryUninstall(void);
@@ -125,8 +142,7 @@ int     SyslogOpen(void);
 int     SyslogSend(char * message, int level);
 int     SyslogSendW(WCHAR * message, int level);
 char*   TimeToString(DWORD dw);
-int     WinEventlogCreate(char * name);
-DWORD   WinEventSubscribe(EventList*);
+DWORD   WinEventSubscribe(XPathList*,int);
 void    WinEventCancelSubscribes();
 WCHAR*  WinEventTimeToString(ULONGLONG fTime);
 void    WSockClose(void);
