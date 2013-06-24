@@ -46,12 +46,13 @@
 #include "service.h"
 #include "syslog.h"
 #include "winevent.h"
+#include "check.h"
 
 #pragma comment(lib, "delayimp.lib") /* Prevents winevt from loading unless necessary */
 #pragma comment(lib, "wevtapi.lib")	 /* New Windows Events logging library for Vista and beyond */
 
 /* Prototypes */
-DWORD ProcessEvent(EVT_HANDLE hEvent, EventList * IgnoreList);
+DWORD ProcessEvent(EVT_HANDLE hEvent);
 DWORD WINAPI WinEventCallback(EVT_SUBSCRIBE_NOTIFY_ACTION action, PVOID pContext, EVT_HANDLE hEvent);
 
 /* Number of eventlogs */
@@ -64,23 +65,21 @@ struct WinEventlog {
 	int recnum;					/* Next record number		*/
 };
 
-/* List of eventlogs */
-static struct WinEventlog WinEventlogList[WIN_EVENTLOG_SZ];
-int WinEventlogCount = 0;
-
 EVT_HANDLE WinEventSub = NULL;
 
- /* Subscribe to new events */
-DWORD WinEventSubscribe(EventList * IgnoredEvents)
+/* Subscribe to new events */
+DWORD WinEventSubscribe(XPathList * xpathQueries, int queryCount)
 {
     LPWSTR error_msg = NULL;
-    WCHAR pQueryL[QUERY_LIST_SZ];
+    WCHAR * pQueryL;
     DWORD used;
     DWORD status = ERROR_SUCCESS;
 
-    CreateQueryString(pQueryL, IgnoredEvents);
+    pQueryL = (WCHAR*)malloc(QUERY_LIST_SZ);
 
-    WinEventSub = EvtSubscribe(NULL, NULL, NULL, pQueryL, NULL, IgnoredEvents, 
+    CreateQueryString(pQueryL, xpathQueries, queryCount);
+
+    WinEventSub = EvtSubscribe(NULL, NULL, NULL, pQueryL, NULL, NULL, 
                                  (EVT_SUBSCRIBE_CALLBACK)WinEventCallback,
                                  EvtSubscribeToFutureEvents);
 
@@ -91,10 +90,10 @@ DWORD WinEventSubscribe(EventList * IgnoredEvents)
         status = GetLastError();
 
         if (ERROR_EVT_CHANNEL_NOT_FOUND == status)
-            Log(LOG_WARNING, "Channel %s was not found.\n", "1");
+            Log(LOG_WARNING, "Channel %s was not found.\n", "Unknown");
         else if (ERROR_EVT_INVALID_QUERY == status)
         {
-            Log(LOG_ERROR, "The query \"%s\" is not valid.\n", "1");
+            Log(LOG_ERROR, "The query \"%S\" is not valid.\n", pQueryL);
 
             if (EvtGetExtendedStatus(SYSLOG_DEF_SZ, error_msg, &used) == ERROR_SUCCESS)
                 Log(LOG_ERROR, "%S", error_msg);
@@ -103,31 +102,36 @@ DWORD WinEventSubscribe(EventList * IgnoredEvents)
             Log(LOG_ERROR | LOG_SYS, "EvtSubscribe failed with %lu.\n", status);
 
         WinEventCancelSubscribes();
-        return ERR_FAIL;
+        status = ERR_FAIL;
     }
 
-    return ERROR_SUCCESS;
+    if (pQueryL != NULL)
+        free(pQueryL);
+
+    return status;
 }
 
 /* Create an XML query string for subscription */
-void CreateQueryString(WCHAR * pQueryL, EventList * ignore_list)
+void CreateQueryString(WCHAR * pQueryL, XPathList * xpathQueries, int queryCount)
 {
     WCHAR query[QUERY_SZ];
-    int queries = 0;
     int i = 0;
+    XPathList * iter;
 
     wcscpy_s(pQueryL, QUERY_LIST_SZ, L"<QueryList>");
-    for (i = 0; i < WinEventlogCount; i++) {
+
+    for (iter = xpathQueries; iter != NULL; iter=iter->next) { 
+        if (iter->source == NULL)
+            continue;
 
         swprintf_s(query, QUERY_SZ,
-            L"<Query Id='%i' Path='%s'><Select Path='%s'>*</Select></Query>",
-            queries,
-            WinEventlogList[i].name,
-            WinEventlogList[i].name
+            L"<Query Id=\"%i\" Path=\"%S\">%S</Query>",
+            i++,
+            iter->source,
+            iter->query
         );
 
         wcscat_s(pQueryL, QUERY_LIST_SZ, query);
-        queries++;
     }
     wcscat_s(pQueryL, QUERY_LIST_SZ, L"</QueryList>");
 }
@@ -140,9 +144,8 @@ void WinEventCancelSubscribes()
 }
 
 /* This function is called whenever a matching event is triggered */
-DWORD WINAPI WinEventCallback(EVT_SUBSCRIBE_NOTIFY_ACTION action, PVOID pIgnoreList, EVT_HANDLE hEvent)
+DWORD WINAPI WinEventCallback(EVT_SUBSCRIBE_NOTIFY_ACTION action, PVOID context, EVT_HANDLE hEvent)
 {
-    EventList * IgnoredEvents = (EventList *)pIgnoreList;
     DWORD status = ERROR_SUCCESS;
 
     switch(action)
@@ -159,7 +162,7 @@ DWORD WINAPI WinEventCallback(EVT_SUBSCRIBE_NOTIFY_ACTION action, PVOID pIgnoreL
             break;
 
         case EvtSubscribeActionDeliver:
-            status = ProcessEvent(hEvent, IgnoredEvents);
+            status = ProcessEvent(hEvent);
             break;
 
         default:
@@ -211,7 +214,6 @@ PEVT_VARIANT GetEventInfo(EVT_HANDLE hEvent)
 				if (LogInteractive)
 					Log(LOG_ERROR|LOG_SYS, "Error Rendering Event");
 				status = ERR_FAIL;
-				goto cleanup;
 			}
 		} else {
 			status = ERR_FAIL;
@@ -275,7 +277,7 @@ LPWSTR GetMessageString(EVT_HANDLE hMetadata, EVT_HANDLE hEvent)
 }
 
 /* Process a given event */
-DWORD ProcessEvent(EVT_HANDLE hEvent, EventList * ignore_list)
+DWORD ProcessEvent(EVT_HANDLE hEvent)
 {
     EVT_HANDLE hProviderMetadata = NULL;
 	PEVT_VARIANT eventInfo = NULL;
@@ -288,9 +290,6 @@ DWORD ProcessEvent(EVT_HANDLE hEvent, EventList * ignore_list)
 	int winlevel = 0;
 	int level = 0;
 
-	BOOL bFilter = FALSE;
-
-	char mbsource[SOURCE_SZ];
 	WCHAR source[SOURCE_SZ];
 	WCHAR hostname[HOSTNAME_SZ];
 	WCHAR * formatted_string = NULL;
@@ -317,25 +316,19 @@ DWORD ProcessEvent(EVT_HANDLE hEvent, EventList * ignore_list)
 	else
 		wcsncpy_s(source, COUNT_OF(source), pwszPublisherName, _TRUNCATE);
 
-	/* Check Event Info Against Ignore List */
-	WideCharToMultiByte(CP_UTF8, 0, source, -1, mbsource, SOURCE_SZ, NULL, NULL);
-    if (IgnoreSyslogEvent(ignore_list, mbsource, event_id)) {
-		if (LogInteractive)
-			printf("IGNORING_EVENT: SOURCE=%s & ID=%i\n", mbsource, event_id);
-		bFilter = TRUE;
-	} else {
-		bFilter = FALSE;
-	}
-
 	/* Format Event Timestamp */
 	if ((tstamp = WinEventTimeToString(eventTime)) == NULL)
 		tstamp = L"TIME_ERROR";
 
 	/* Add hostname for RFC compliance (RFC 3164) */
-	if (ExpandEnvironmentStringsW(L"%COMPUTERNAME%", hostname, COUNT_OF(hostname)) == 0) {
-		wcscpy_s(hostname, COUNT_OF(hostname), L"HOSTNAME_ERR");
-		Log(LOG_ERROR|LOG_SYS, "Cannot expand %COMPUTERNAME%");
-	}
+	if (ProgramUseIPAddress == TRUE) {
+		_snwprintf_s(hostname, HOSTNAME_SZ, _TRUNCATE, L"%S", ProgramHostName);
+	} else {
+		if (ExpandEnvironmentStringsW(L"%COMPUTERNAME%", hostname, COUNT_OF(hostname)) == 0) {
+			wcscpy_s(hostname, COUNT_OF(hostname), L"HOSTNAME_ERR");
+			Log(LOG_ERROR|LOG_SYS, "Cannot expand %COMPUTERNAME%");
+		}
+    }
 
 	/* replace every space in source by underscores */
 	index = source;
@@ -407,16 +400,16 @@ DWORD ProcessEvent(EVT_HANDLE hEvent, EventList * ignore_list)
 		formatted_string = defmsg;
 	}
 
-	/* Combine the message strings */
-	wcsncat_s(tstamped_message, COUNT_OF(tstamped_message), formatted_string, _TRUNCATE);
-
 	/* Get Event Error Level. In the case of Security Events,
 	 * set Failures to Error instead of notice using the
 	 * keyword attribute
 	 */
 	keyword = (EvtVarTypeNull == eventInfo[4].Type) ? 0 : eventInfo[4].UInt64Val;
-	if ((keyword & WINEVENT_KEYWORD_AUDIT_FAILURE) != 0)
+	if ((keyword & WINEVENT_KEYWORD_AUDIT_FAILURE) != 0) {
+        // Add AUDIT_FAILURE message for better parsing
+        wcsncat_s(tstamped_message, COUNT_OF(tstamped_message), L"AUDIT_FAILURE ", _TRUNCATE);
 		winlevel = WINEVENT_ERROR_LEVEL;
+    }
 	else
 		winlevel = (int)eventInfo[3].ByteVal;
 
@@ -435,6 +428,7 @@ DWORD ProcessEvent(EVT_HANDLE hEvent, EventList * ignore_list)
 			level = SYSLOG_BUILD(SyslogFacility, SYSLOG_NOTICE);
 			break;
 		case WINEVENT_AUDIT_LEVEL:
+            wcsncat_s(tstamped_message, COUNT_OF(tstamped_message), L"AUDIT_SUCCESS ", _TRUNCATE);
 			level = SYSLOG_BUILD(SyslogFacility, SYSLOG_NOTICE);
 			break;
 		case WINEVENT_VERBOSE_LEVEL:
@@ -447,12 +441,14 @@ DWORD ProcessEvent(EVT_HANDLE hEvent, EventList * ignore_list)
 			break;
 	}
 
+	/* Combine the message strings */
+	wcsncat_s(tstamped_message, COUNT_OF(tstamped_message), formatted_string, _TRUNCATE);
+
 	/* Send the event to the Syslog Server */
-	/* If event is not being ignored, make sure it is severe enough to be logged */
-	if (!bFilter)
-		if (SyslogLogLevel == 0 || (SyslogLogLevel >= (DWORD)winlevel && winlevel > 0))
-			if (SyslogSendW(tstamped_message, level))
-				status = ERR_FAIL;
+	/* Making sure it is severe enough to be logged */
+	if (SyslogLogLevel == 0 || (SyslogLogLevel >= (DWORD)winlevel && winlevel > 0))
+		if (SyslogSendW(tstamped_message, level))
+			status = ERR_FAIL;
 
 	/* Cleanup memory and open handles */
 	if(pwsMessage)
@@ -466,25 +462,6 @@ DWORD ProcessEvent(EVT_HANDLE hEvent, EventList * ignore_list)
 		EvtClose(hEvent);
 
 	return status;
-}
-
-/* Create new eventlog descriptor */
-int WinEventlogCreate(char * name)
-{
-	/* Check count */
-	if (WinEventlogCount == WIN_EVENTLOG_SZ) {
-		Log(LOG_ERROR, "Too many eventlogs: %d", WIN_EVENTLOG_SZ);
-		return 1;
-	}
-
-	/* Store new name */
-	_snwprintf_s(WinEventlogList[WinEventlogCount].name, COUNT_OF(WinEventlogList[WinEventlogCount].name), _TRUNCATE, L"%S", name);
-
-	/* Increment count */
-	WinEventlogCount++;
-
-	/* Success */
-	return 0;
 }
 
 /* Format Timestamp from EventLog */

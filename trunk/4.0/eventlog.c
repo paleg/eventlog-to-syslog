@@ -61,6 +61,7 @@
 #include "service.h"
 #include "syslog.h"
 #include "check.h"
+#include "dns.h"
 
 /* Number of eventlogs */
 #define EVENTLOG_SZ		32
@@ -388,10 +389,12 @@ char * EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * le
 			*level = SYSLOG_BUILD(SyslogFacility, loglevel);
 			break;
 		case EVENTLOG_AUDIT_SUCCESS:
+            strncat_s(message, sizeof(message), "AUDIT_SUCCESS ", _TRUNCATE);
 			loglevel = SYSLOG_NOTICE;
 			*level = SYSLOG_BUILD(SyslogFacility, loglevel);
 			break;
 		case EVENTLOG_AUDIT_FAILURE:
+            strncat_s(message, sizeof(message), "AUDIT_FAILURE ", _TRUNCATE);
 			loglevel = SYSLOG_ERR;
 			*level = SYSLOG_BUILD(SyslogFacility, loglevel);
 			break;
@@ -410,10 +413,15 @@ char * EventlogNext(EventList ignore_list[MAX_IGNORED_EVENTS], int log, int * le
 			return NULL;
 
 	/* Add hostname for RFC compliance (RFC 3164) */
-	if (ExpandEnvironmentStrings("%COMPUTERNAME%", hostname, COUNT_OF(hostname)) == 0) {
-		strcpy_s(hostname, COUNT_OF(hostname), "HOSTNAME_ERR");
-		Log(LOG_ERROR|LOG_SYS, "Cannot expand %COMPUTERNAME%");
-	}
+	/* if -a then use the fqdn bound to our IP address. If none, use the IP address */
+	if (ProgramUseIPAddress == TRUE) {
+		strcpy_s(hostname, HOSTNAME_SZ, ProgramHostName);
+	} else {
+		if (ExpandEnvironmentStrings("%COMPUTERNAME%", hostname, COUNT_OF(hostname)) == 0) {
+			strcpy_s(hostname, COUNT_OF(hostname), "HOSTNAME_ERR");
+			Log(LOG_ERROR|LOG_SYS, "Cannot expand %COMPUTERNAME%");
+	    }
+    }
 	
 	/* Query and Add timestamp from EventLog, add hostname, */
 	/* and finally the message to the string */

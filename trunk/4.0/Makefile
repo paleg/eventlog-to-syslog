@@ -34,8 +34,8 @@
 
 CFLAGS=/W3 /nologo /Zi
 
-SYS_LIB=advapi32.lib wsock32.lib dhcpcsvc.lib iphlpapi.lib user32.lib
-OFILES=check.obj eventlog.obj getopt.obj log.obj loop.obj main.obj registry.obj service.obj support.obj syslog.obj winevent.obj wsock.obj dhcp.obj
+SYS_LIB=advapi32.lib wsock32.lib dhcpcsvc.lib iphlpapi.lib user32.lib ws2_32.lib dnsapi.lib
+OFILES=check.obj eventlog.obj getopt.obj log.obj loop.obj main.obj registry.obj service.obj support.obj syslog.obj winevent.obj wsock.obj dhcp.obj dns.obj
 
 all:		evtsys.exe evtsys.dll
 
@@ -47,6 +47,9 @@ check.obj:	check.c
 
 dhcp.obj:	dhcp.c
 		cl $(CFLAGS) /c /MT dhcp.c
+
+dns.obj:	dns.c
+		cl $(CFLAGS) /c /MT dns.c
 
 eventlog.obj:	eventlog.c
 		cl $(CFLAGS) /c /MT eventlog.c
@@ -133,11 +136,13 @@ log.c:		log.h
 log.c:		syslog.h
 log.c:		wsock.h
 loop.c:		main.h
+loop.c:		check.h
 loop.c:		eventlog.h
 loop.c:		log.h
 loop.c:		service.h
 loop.c:		syslog.h
 loop.c:		ver.h
+loop.c: 	winevent.h
 main.c:		main.h
 main.c:		check.h
 main.c:		eventlog.h
