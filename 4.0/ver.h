@@ -56,4 +56,5 @@
 
 #define VERSION_MAJOR	4
 #define VERSION_MINOR	4
+#define VERSION_REV 	4
 #define VERSION		"4.4.4"
