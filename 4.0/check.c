@@ -319,8 +319,12 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, XPathList ** xpath_queries, c
 
         if (LogInteractive)
         {
-            Log(LOG_INFO, "Ignored Lines: %i", i);
-            Log(LOG_INFO, "XPath lines: %i", XPATH_COUNT);
+            BOOL winEvents = CheckForWindowsEvents();
+            
+            Log(LOG_INFO, "%s Filters: %i",
+                winEvents ? "XPath" : (SyslogIncludeOnly ? "Include" : "Ignore"),
+                winEvents ? XPATH_COUNT : i
+            );
         }
 	}
 

@@ -49,3 +49,8 @@
 
 /* Size of eventlog name */
 #define WIN_EVENTLOG_NAME_SZ	128
+
+/* Prototypes */
+DWORD   WinEventSubscribe(XPathList*,int);
+void    WinEventCancelSubscribes();
+WCHAR*  WinEventTimeToString(ULONGLONG fTime);

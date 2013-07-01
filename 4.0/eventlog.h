@@ -58,3 +58,6 @@
 
 /* Number of eventlogs */
 extern int EventlogCount;
+
+/* Prototypes */
+char*   TimeToString(DWORD dw);

@@ -92,7 +92,6 @@ extern XPathList * XPathQueries;
 extern BOOL ProgramUseIPAddress;
 extern char ProgramHostName[256];
 extern char ProgramExePath[MAX_PATH];
-extern char ProgramDllPath[MAX_PATH];
 
 /* Prototypes */
 int     CheckForWindowsEvents();
@@ -133,6 +132,7 @@ int     RegistryGather(void);
 int     RegistryInstall(void);
 int     RegistryRead(void);
 int     RegistryUninstall(void);
+int     RegistryUpdate();
 int     ServiceInstall(void);
 int     ServiceRemove(void);
 DWORD   WINAPI ServiceStart(void);
@@ -141,10 +141,6 @@ void    SyslogClose(void);
 int     SyslogOpen(void);
 int     SyslogSend(char * message, int level);
 int     SyslogSendW(WCHAR * message, int level);
-char*   TimeToString(DWORD dw);
-DWORD   WinEventSubscribe(XPathList*,int);
-void    WinEventCancelSubscribes();
-WCHAR*  WinEventTimeToString(ULONGLONG fTime);
 void    WSockClose(void);
 int     WSockOpen(char * loghost, unsigned short port, int ID);
 int     WSockSend(char * message);
