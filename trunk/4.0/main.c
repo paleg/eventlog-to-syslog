@@ -54,7 +54,7 @@
 
 */
 
-/* Include files */
+// Include files //
 #include "main.h"
 #include "dns.h"
 #include "eventlog.h"
@@ -66,9 +66,9 @@
 #include "winevent.h"
 #include "wsock.h"
 
-/* Main program */
+// Main program //
 
-/* Program variables */
+// Program variables //
 static BOOL ProgramDebug = FALSE;
 static BOOL ProgramInstall = FALSE;
 static BOOL ProgramUninstall = FALSE;
@@ -86,47 +86,48 @@ static char * ProgramLogLevel = NULL;
 BOOL ProgramUseIPAddress = FALSE;
 char ProgramHostName[256];
 char ProgramExePath[MAX_PATH];
-char ProgramDllPath[MAX_PATH];
 
 static EventList IgnoredEvents[MAX_IGNORED_EVENTS];
 static XPathList * XPathQueries;
 
-/* Operate on program flags */
+// Operate on program flags //
 static int mainOperateFlags()
 {
 	int status = 0;
 
-	/* Install new service */
+	// Install new service //
 	if (ProgramInstall) {
 
-		/* Install registry */
+		// Install registry //
 		if (RegistryInstall())
 			return 1;
 
-		/* Install service */
+		// Install service //
 		if (ServiceInstall())
 			return 1;
 
-		/* Success */
+		// Success //
 		return 0;
 	}
+	else if (ProgramUninstall) { // Uninstall service //
 
-	/* Uninstall service */
-	if (ProgramUninstall) {
-
-		/* Remove service */
+		// Remove service //
 		if (ServiceRemove())
 			status = 1;
 
-		/* Remove registry settings */
+		// Remove registry settings //
 		if (RegistryUninstall())
 			status = 1;
 
-		/* Return status */
+		// Return status //
 		return status;
 	}
+    else {
+        // Update Registry Values if necessary //
+        RegistryUpdate();
+    }
 
-    /* discover our FQDN (or IP if no FQDN) */
+    // discover our FQDN (or IP if no FQDN) //
 	if (ProgramUseIPAddress) {
 		if (get_hostname(ProgramHostName, 255) == 0) {
 			ProgramUseIPAddress = FALSE;
@@ -135,29 +136,29 @@ static int mainOperateFlags()
 		}
 	}
 
-	/* Load the current registry keys */
+	// Load the current registry keys //
 	if (RegistryRead())
 		return 1;
 
-    /* Open Syslog Connections */
+    // Open Syslog Connections //
     if(SyslogOpen())
         return 1;
 
-	/* If in debug mode, call main loop directly */
+	// If in debug mode, call main loop directly //
 	if (ProgramDebug)
 		status = MainLoop();
 	else
-		/* Otherwise, start service dispatcher, that will eventually call MainLoop */
+		// Otherwise, start service dispatcher, that will eventually call MainLoop //
 		status = ServiceStart();
 
-	/* Close syslog connections */
+	// Close syslog connections //
 	SyslogClose();
 
-	/* Return status */
+	// Return status //
 	return status;
 }
 
-/* Program usage information */
+// Program usage information //
 static void mainUsage()
 {
 	if (LogInteractive) {
@@ -179,8 +180,9 @@ static void mainUsage()
 		fputs("  -f facility  Facility level of syslog message\n", stderr);
 		fputs("  -l level     Minimum level to send to syslog\n", stderr);
 		fputs("               0=All/Verbose, 1=Critical, 2=Error, 3=Warning, 4=Info\n", stderr);
-		fputs("  -n           Include only those events specified in the config file\n", stderr);
-		fputs("  -p port      Port number of syslogd\n", stderr);
+		fputs("  -n           (**Win9x/Server 2003 Only**) Include only those events specified\n", stderr);
+		fputs("               in the config file\n", stderr);
+        fputs("  -p port      Port number of syslogd\n", stderr);
 		fputs("  -q bool      Query the Dhcp server to obtain the syslog/port to log to\n", stderr);
 		fputs("               (0/1 = disable/enable)\n", stderr);
 		fputs("  -t tag       Include tag as program field in syslog message\n", stderr);
@@ -194,12 +196,12 @@ static void mainUsage()
 		Log(LOG_ERROR, "Invalid flag usage; Check startup parameters");
 }
 
-/* Process flags */
+// Process flags //
 static int mainProcessFlags(int argc, char ** argv)
 {
 	int flag;
 
-	/* Note all actions */
+	// Note all actions //
 	while ((flag = GetOpt(argc, argv, "f:iudh:b:p:q:s:l:nat:")) != EOF) {
 		switch (flag) {
 			case 'd':
@@ -253,25 +255,25 @@ static int mainProcessFlags(int argc, char ** argv)
 		return 1;
 	}
 
-	/* Must have only one of */
+	// Must have only one of //
 	if (ProgramInstall + ProgramUninstall + ProgramDebug > 1) {
 		Log(LOG_ERROR, "Pass only one of -i, -u or -d");
 		return 1;
 	}
 
-	/* If installing, must have a log host */
+	// If installing, must have a log host //
 	if (ProgramInstall && ProgramSyslogLogHost == NULL) {
 		Log(LOG_ERROR, "Syslogd host name (-h) flag required");
 		return 1;
 	}
 
-	/* Must have a primary if specifying a secondary host */
+	// Must have a primary if specifying a secondary host //
 	if (ProgramSyslogLogHost2 && ProgramSyslogLogHost == NULL) {
 		Log(LOG_ERROR, "Syslogd primary host (-h) flag required");
 		return 1;
 	}
 
-	/* Check arguments */
+	// Check arguments //
 	if (ProgramSyslogLogHost) {
 		if (CheckSyslogLogHost(ProgramSyslogLogHost, 1))
 			return 1;
@@ -307,50 +309,43 @@ static int mainProcessFlags(int argc, char ** argv)
 		if(CheckSyslogTag(ProgramSyslogTag))
 			return 1;
 
-	/* Proceed to do operation */
+	// Proceed to do operation //
 	return mainOperateFlags();
 }
 
-/* Main program */
+// Main program //
 int main(int argc, char ** argv)
 {
 	int status;
-    int path_ln;
 
     SetConsoleCtrlHandler(ShutdownConsole, TRUE);
 
-	/* Save program name */
+	// Save program name //
 	ProgramName = argv[0];
 
-    /* Get and store executable path */
+    // Get and store executable path //
     if (!GetModuleFileName(NULL, ProgramExePath, sizeof(ProgramExePath))) {
         Log(LOG_ERROR, "Unable to get path to my executable");
         return 1;
     }
 
-    // Set extension to dll instead of exe. This assumes dll is stored alongside exe
-    path_ln = GetModuleFileName(NULL, ProgramDllPath, sizeof(ProgramDllPath));
-    ProgramDllPath[path_ln-3] = 'd';
-    ProgramDllPath[path_ln-2] = 'l';
-    ProgramDllPath[path_ln-1] = 'l';
-
-	/* Start eventlog */
+	// Start eventlog //
 	if (LogStart()) {
 		return 1;
 	} else {
 
-		/* Start the network */
+		// Start the network //
 		if (WSockStart() == 0) {
 
-			/* Process flags */
+			// Process flags //
 			status = mainProcessFlags(argc, argv);
 
-			/* Stop network if needed */
+			// Stop network if needed //
 			WSockStop();
 		}
 	}
 
-	/* Show status */
+	// Show status //
 	if (LogInteractive) {
 		if (status)
 			puts("Command did not complete due to a failure");
@@ -358,14 +353,14 @@ int main(int argc, char ** argv)
 			puts("Command completed successfully");
 	}
 
-	/* Stop event logging */
+	// Stop event logging //
 	LogStop();
 
-	/* Success */
+	// Success //
 	return status;
 }
 
-/* Shut down the console cleanly */
+// Shut down the console cleanly //
 BOOL WINAPI ShutdownConsole(DWORD dwCtrlType)
 {
     Log(LOG_INFO, "Signal caught, shutting down and exiting...");

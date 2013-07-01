@@ -472,7 +472,7 @@ WCHAR * WinEventTimeToString(ULONGLONG ulongTime)
 	ULARGE_INTEGER ulargeTime;
 	struct tm tm_struct;
 	WCHAR result[17] = L"";
-	static WCHAR * formatted_result = L"Mmm dd hh:mm:ss";
+	static WCHAR formatted_result[] = L"Mmm dd hh:mm:ss";
 
 	memset(&tm_struct, 0, sizeof(tm_struct));
 

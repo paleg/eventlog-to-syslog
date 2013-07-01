@@ -442,7 +442,7 @@ char * TimeToString(DWORD dw)
 	time_t tt;
 	struct tm stm;
 	char result[16];
-	static char * formatted_result = "Mmm dd hh:mm:ss";
+	static char formatted_result[] = "Mmm dd hh:mm:ss";
 
 	tt = (time_t) dw;
 	
