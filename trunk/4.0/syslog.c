@@ -54,19 +54,22 @@
 
 */
 
-/* Include files */
+// Include files //
 #include "main.h"
 #include "syslog.h"
 #include "wsock.h"
 #include "dhcp.h"
 
-/* syslog */
+// syslog //
 
-/* Application data configuration */
+// Application data configuration //
+char SyslogLogHosts[(SYSLOG_HOST_SZ+1)*4];
 char SyslogLogHost1[SYSLOG_HOST_SZ+1];
 char SyslogLogHost2[SYSLOG_HOST_SZ+1];
 char SyslogLogHost3[SYSLOG_HOST_SZ+1];
 char SyslogLogHost4[SYSLOG_HOST_SZ+1];
+char SyslogLogHost5[SYSLOG_HOST_SZ+1];
+char SyslogLogHost6[SYSLOG_HOST_SZ+1];
 char SyslogLogHostDhcp[SYSLOG_HOST_SZ+1];
 char SyslogConfigFile[MAX_CONFIG_FNAME+1];
 char SyslogTag[SYSLOG_TAG_SZ+1];
@@ -80,14 +83,14 @@ DWORD SyslogIncludeOnly = FALSE;
 DWORD SyslogMessageSize = SYSLOG_DEF_SZ;
 DWORD SyslogEnableTcp = FALSE;
 
-/* Open syslog connection */
+// Open syslog connection //
 int SyslogOpen()
 {
-	/* Query the dhcp if enabled */
+	// Query the dhcp if enabled //
 	if(SyslogQueryDhcp && !DHCPQuery())
 		WSockOpen(SyslogLogHostDhcp, (unsigned short)SyslogPort, LOG_HOST_DHCP);
 
-	/* Start network connections */
+	// Start network connections //
 	if (SyslogLogHost1[0] != '\0')
 		if (WSockOpen(SyslogLogHost1, (unsigned short)SyslogPort, LOG_HOST1))
 			return 1;
@@ -103,55 +106,63 @@ int SyslogOpen()
 	if (SyslogLogHost4[0] != '\0')
 		if (WSockOpen(SyslogLogHost4, (unsigned short)SyslogPort, LOG_HOST4))
 			return 1;
+    
+    if (SyslogLogHost5[0] != '\0')
+		if (WSockOpen(SyslogLogHost5, (unsigned short)SyslogPort, LOG_HOST5))
+			return 1;
 
-    /* Success */
+    if (SyslogLogHost6[0] != '\0')
+		if (WSockOpen(SyslogLogHost6, (unsigned short)SyslogPort, LOG_HOST6))
+			return 1;
+
+    // Success //
 	return 0;
 }
 
-/* Close syslog connection */
+// Close syslog connection //
 void SyslogClose()
 {
 	WSockClose();
 }
 
-/* Send a message to the syslog server */
+// Send a message to the syslog server //
 int SyslogSend(char * message, int level)
 {
 	char error_message[SYSLOG_DEF_SZ];
 	WCHAR utf16_message[SYSLOG_DEF_SZ];
 	char utf8_message[SYSLOG_DEF_SZ];
 
-	/* Write priority level */
+	// Write priority level //
 	_snprintf_s(error_message, sizeof(error_message), _TRUNCATE,
 		"<%d>%s",
 		level,
 		message
 	);
 
-	/* convert from ansi/cp850 codepage (local system codepage) to utf8, widely used codepage on unix systems */
+	// convert from ansi/cp850 codepage (local system codepage) to utf8, widely used codepage on unix systems //
 	MultiByteToWideChar(CP_ACP, 0, error_message, -1, utf16_message, SYSLOG_DEF_SZ);
 	WideCharToMultiByte(CP_UTF8, 0, utf16_message, -1, utf8_message, SYSLOG_DEF_SZ, NULL, NULL);
 
-	/* Send result to syslog server */
+	// Send result to syslog server //
 	return WSockSend(utf8_message);
 }
 
-/* Send a message to the syslog server */
+// Send a message to the syslog server //
 int SyslogSendW(WCHAR * message, int level)
 {
 	WCHAR utf16_message[SYSLOG_DEF_SZ];
 	char utf8_message[SYSLOG_DEF_SZ];
 
-	/* Write priority level */
+	// Write priority level //
 	_snwprintf_s(utf16_message, COUNT_OF(utf16_message), _TRUNCATE,
 		L"<%d>%s",
 		level,
 		message
 	);
 
-	/* convert to utf8, widely used codepage on unix systems */
+	// convert to utf8, widely used codepage on unix systems //
 	WideCharToMultiByte(CP_UTF8, 0, utf16_message, -1, utf8_message, SYSLOG_DEF_SZ, NULL, NULL);
 
-	/* Send result to syslog server */
+	// Send result to syslog server //
 	return WSockSend(utf8_message);
 }

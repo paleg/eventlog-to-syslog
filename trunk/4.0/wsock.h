@@ -54,9 +54,11 @@
 
 */
 
-/* Connection Options */
+// Connection Options //
 #define LOG_HOST1		0
 #define LOG_HOST2		1
 #define LOG_HOST3		2
 #define LOG_HOST4		3
-#define LOG_HOST_DHCP	4
+#define LOG_HOST5		4
+#define LOG_HOST6		5
+#define LOG_HOST_DHCP	6

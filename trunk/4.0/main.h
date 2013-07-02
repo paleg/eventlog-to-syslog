@@ -98,7 +98,7 @@ int     CheckForWindowsEvents();
 int     CheckSyslogFacility(char * facility);
 int     CheckSyslogIgnoreFile(EventList * ignore_list, XPathList ** xpath_queries, char * filename);
 int	    CheckSyslogInterval(char * interval);
-int     CheckSyslogLogHost(char * loghostarg, int ID);
+int     CheckSyslogLogHost(char * loghostarg);
 int     CheckSyslogPort(char * port);
 int     CheckSyslogQueryDhcp(char * value);
 int     CheckSyslogLogLevel(char * level);

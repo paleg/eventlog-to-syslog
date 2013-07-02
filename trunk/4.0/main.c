@@ -75,8 +75,7 @@ static BOOL ProgramUninstall = FALSE;
 static BOOL ProgramIncludeOnly = FALSE;
 static char * ProgramName;
 static char * ProgramSyslogFacility = NULL;
-static char * ProgramSyslogLogHost = NULL;
-static char * ProgramSyslogLogHost2 = NULL;
+static char * ProgramSyslogLogHosts = NULL;
 static char * ProgramSyslogPort = NULL;
 static char * ProgramSyslogQueryDhcp = NULL;
 static char * ProgramSyslogInterval = NULL;
@@ -140,6 +139,10 @@ static int mainOperateFlags()
 	if (RegistryRead())
 		return 1;
 
+    // Parse LogHosts from registry //
+    if (CheckSyslogLogHost(SyslogLogHosts))
+        return 1;
+
     // Open Syslog Connections //
     if(SyslogOpen())
         return 1;
@@ -169,14 +172,13 @@ static void mainUsage()
 			"32"
 #endif
 		);
-		fprintf(stderr, "Usage: %s -i|-u|-d [-h host] [-b host] [-f facility] [-p port]\n", ProgramName);
-		fputs("       [-t tag] [-s minutes] [-l level] [-n] [-a]\n", stderr);
+		fprintf(stderr, "Usage: %s -i|-u|-d [-h host[;host2;...]] [-f facility] [-p port]\n", ProgramName);
+		fputs("       [-t tag] [-s minutes] [-q bool] [-l level] [-n] [-a]\n", stderr);
 		fputs("  -i           Install service\n", stderr);
 		fputs("  -u           Uninstall service\n", stderr);
 		fputs("  -d           Debug: run as console program\n", stderr);
         fputs("  -a           Use our IP address (or fqdn) in the syslog message\n", stderr);
-		fputs("  -h host      Name of log host\n", stderr);
-		fputs("  -b host      Name of secondary log host\n", stderr);
+		fputs("  -h hosts     Name of log host(s), separated by a ';'\n", stderr);
 		fputs("  -f facility  Facility level of syslog message\n", stderr);
 		fputs("  -l level     Minimum level to send to syslog\n", stderr);
 		fputs("               0=All/Verbose, 1=Critical, 2=Error, 3=Warning, 4=Info\n", stderr);
@@ -202,7 +204,7 @@ static int mainProcessFlags(int argc, char ** argv)
 	int flag;
 
 	// Note all actions //
-	while ((flag = GetOpt(argc, argv, "f:iudh:b:p:q:s:l:nat:")) != EOF) {
+	while ((flag = GetOpt(argc, argv, "f:iudh:p:q:s:l:nat:")) != EOF) {
 		switch (flag) {
 			case 'd':
 				ProgramDebug = TRUE;
@@ -211,10 +213,7 @@ static int mainProcessFlags(int argc, char ** argv)
 				ProgramSyslogFacility = GetOptArg;
 				break;
 			case 'h':
-				ProgramSyslogLogHost = GetOptArg;
-				break;
-			case 'b':
-				ProgramSyslogLogHost2 = GetOptArg;
+				ProgramSyslogLogHosts = GetOptArg;
 				break;
 			case 'i':
 				ProgramInstall = TRUE;
@@ -262,24 +261,14 @@ static int mainProcessFlags(int argc, char ** argv)
 	}
 
 	// If installing, must have a log host //
-	if (ProgramInstall && ProgramSyslogLogHost == NULL) {
+	if (ProgramInstall && ProgramSyslogLogHosts == NULL) {
 		Log(LOG_ERROR, "Syslogd host name (-h) flag required");
 		return 1;
 	}
 
-	// Must have a primary if specifying a secondary host //
-	if (ProgramSyslogLogHost2 && ProgramSyslogLogHost == NULL) {
-		Log(LOG_ERROR, "Syslogd primary host (-h) flag required");
-		return 1;
-	}
-
 	// Check arguments //
-	if (ProgramSyslogLogHost) {
-		if (CheckSyslogLogHost(ProgramSyslogLogHost, 1))
-			return 1;
-	}
-	if (ProgramSyslogLogHost2) {
-		if (CheckSyslogLogHost(ProgramSyslogLogHost2, 2))
+	if (ProgramSyslogLogHosts) {
+		if (CheckSyslogLogHost(ProgramSyslogLogHosts))
 			return 1;
 	}
 	if (ProgramSyslogFacility) {

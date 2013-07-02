@@ -54,7 +54,7 @@
 
 */
 
-/* Include files */
+// Include files //
 #include "main.h"
 #include "log.h"
 #include "syslog.h"
@@ -64,7 +64,7 @@
 int IGNORED_LINES = 0;
 int XPATH_COUNT = 0;
 
-/* Facility conversion table */
+// Facility conversion table //
 static struct {
 	char * name;
 	int id;
@@ -92,33 +92,33 @@ static struct {
 	{ "uucp", SYSLOG_UUCP }
 };
 
-/* Check the minimum log level */
+// Check the minimum log level //
 int CheckSyslogLogLevel(char * level)
 {
 	DWORD LogLevel;
 
-	/* Convert interval to integer */
+	// Convert interval to integer //
 	LogLevel = atoi(level);
 
-	/* Check for valid number */
+	// Check for valid number //
 	if (LogLevel < MIN_LOG_LEVEL || LogLevel > MAX_LOG_LEVEL) {
 		Log(LOG_ERROR, "Bad level: %s \nMust be between %i and %i", level, MIN_LOG_LEVEL, MAX_LOG_LEVEL);
 		return 1;
 	}
 
-	/* Store new value */
+	// Store new value //
 	SyslogLogLevel = LogLevel;
 
-	/* Success */
+	// Success //
 	return 0;
 }
 
-/* Check facility name */
+// Check facility name //
 int CheckSyslogFacility(char * facility)
 {
 	int i;
 
-	/* Try looking up name */
+	// Try looking up name //
 	for (i = 0; i < COUNT_OF(FacilityTable); i++)
 		if (_stricmp(FacilityTable[i].name, facility) == 0)
 			break;
@@ -127,99 +127,116 @@ int CheckSyslogFacility(char * facility)
 		return 1;
 	}
 
-	/* Store new value */
+	// Store new value //
 	SyslogFacility = FacilityTable[i].id;
 
-	/* Success */
+	// Success //
 	return 0;
 }
 
-/* Check port number */
+// Check port number //
 int CheckSyslogPort(char * port)
 {
 	DWORD value;
 	char * eos;
 	struct servent * service;
 
-	/* Try converting to integer */
+	// Try converting to integer //
 	value = strtoul(port, &eos, 10);
 	if (eos == port || *eos != '\0') {
 
-		/* Try looking up name */
+		// Try looking up name //
 		service = getservbyname(port, "udp");
 		if (service == NULL) {
 			Log(LOG_ERROR, "Invalid service name: \"%s\"", port);
 			return 1;
 		}
 
-		/* Convert back to host order */
+		// Convert back to host order //
 		value = ntohs(service->s_port);
 	} else {
 
-		/* Check for valid number */
+		// Check for valid number //
 		if (value <= 0 || value > 0xffff) {
 			Log(LOG_ERROR, "Invalid service number: %u", value);
 			return 1;
 		}
 	}
 
-	/* Store new value */
+	// Store new value //
 	SyslogPort = value;
 
-	/* Success */
+	// Success //
 	return 0;
 }
 
-/* Check log host */
-int CheckSyslogLogHost(char * loghostarg, int ID)
+// Check log host //
+int CheckSyslogLogHost(char * loghostarg)
 {
 	char * ipstr = NULL;
     char * loghost = NULL;
     char * next_token = NULL;
     char delim[] = ";";
 
-    /* Store new value */
+    // Store new value //
     // Need to clean up the whole host storage mechanism
     // so much duplication is unacceptable
-    if (ID == 1)
-    {
-        if (ConvertLogHostToIp(loghostarg, &ipstr) == 0)
-	        strncpy_s(SyslogLogHost1, sizeof(SyslogLogHost1), ipstr, _TRUNCATE);
-        else
-            return 1;
-    }
+    loghost = strtok_s(loghostarg, delim, &next_token);
+    if (ConvertLogHostToIp(loghost, &ipstr) == 0)
+	    strncpy_s(SyslogLogHost1, sizeof(SyslogLogHost1), ipstr, _TRUNCATE);
     else
+        return 1;
+
+    loghost = strtok_s(NULL, delim, &next_token);
+    if (loghost)
     {
-        loghost = strtok_s(loghostarg, delim, &next_token);
-        if (loghost && ConvertLogHostToIp(loghost, &ipstr) == 0)
+        if (ConvertLogHostToIp(loghost, &ipstr) == 0)
 	        strncpy_s(SyslogLogHost2, sizeof(SyslogLogHost2), ipstr, _TRUNCATE);
         else
             return 1;
-
-        loghost = strtok_s(NULL, delim, &next_token);
-        if (loghost)
-        {
-            if (ConvertLogHostToIp(loghost, &ipstr) == 0)
-	            strncpy_s(SyslogLogHost3, sizeof(SyslogLogHost3), ipstr, _TRUNCATE);
-            else
-                return 1;
-        }
-
-        loghost = strtok_s(NULL, delim, &next_token);
-        if (loghost)
-        {
-            if (ConvertLogHostToIp(loghost, &ipstr) == 0)
-	            strncpy_s(SyslogLogHost4, sizeof(SyslogLogHost4), ipstr, _TRUNCATE);
-            else
-                return 1;
-        }
     }
 
-	/* Success */
+    loghost = strtok_s(NULL, delim, &next_token);
+    if (loghost)
+    {
+        if (ConvertLogHostToIp(loghost, &ipstr) == 0)
+	        strncpy_s(SyslogLogHost3, sizeof(SyslogLogHost3), ipstr, _TRUNCATE);
+        else
+            return 1;
+    }
+
+    loghost = strtok_s(NULL, delim, &next_token);
+    if (loghost)
+    {
+        if (ConvertLogHostToIp(loghost, &ipstr) == 0)
+	        strncpy_s(SyslogLogHost4, sizeof(SyslogLogHost4), ipstr, _TRUNCATE);
+        else
+            return 1;
+    }
+
+    loghost = strtok_s(NULL, delim, &next_token);
+    if (loghost)
+    {
+        if (ConvertLogHostToIp(loghost, &ipstr) == 0)
+	        strncpy_s(SyslogLogHost5, sizeof(SyslogLogHost5), ipstr, _TRUNCATE);
+        else
+            return 1;
+    }
+
+    loghost = strtok_s(NULL, delim, &next_token);
+    if (loghost)
+    {
+        if (ConvertLogHostToIp(loghost, &ipstr) == 0)
+	        strncpy_s(SyslogLogHost6, sizeof(SyslogLogHost6), ipstr, _TRUNCATE);
+        else
+            return 1;
+    }
+
+	// Success //
 	return 0;
 }
 
-/* Check ignore file */
+// Check ignore file //
 int CheckSyslogIgnoreFile(EventList * ignore_list, XPathList ** xpath_queries, char * filename)
 {
 	FILE *file;
@@ -252,7 +269,7 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, XPathList ** xpath_queries, c
 		int comments = 1;
 		unsigned int i = 0;
 
-		while (fgets(line, sizeof(line), file) != NULL) { /* read a line */
+		while (fgets(line, sizeof(line), file) != NULL) { // read a line //
 			if (line[0] == cDelim || strlen(line) < 1) {
 				comments++;
                 continue;
@@ -291,7 +308,7 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, XPathList ** xpath_queries, c
 					return -1;
 				}
 
-				/* Stop at MAX lines */
+				// Stop at MAX lines //
 				if (i < MAX_IGNORED_EVENTS) {
 					if (strID[0] == '*') {
 						ignore_list[i].wild = TRUE;
@@ -299,15 +316,15 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, XPathList ** xpath_queries, c
 					}
 					else {
 						ignore_list[i].wild = FALSE;
-						ignore_list[i].id = atoi(strID); /* Enter id into array */
+						ignore_list[i].id = atoi(strID); // Enter id into array //
 					}
-					/* Enter source into array */
+					// Enter source into array //
 					strncpy_s(ignore_list[i].source, sizeof(ignore_list[i].source), source, _TRUNCATE);
 
 					//if(LogInteractive)
 						//printf("IgnoredEvents[%i].id=%i \tIgnoredEvents[%i].source=%s\n",i,ignore_list[i].id,i,ignore_list[i].source);
 				} else {
-					/* Notify if there are too many lines */
+					// Notify if there are too many lines //
 					Log(LOG_ERROR,"Config file too large. Max size is %i lines. Truncating...", MAX_IGNORED_EVENTS);
 					break;
 				}
@@ -328,18 +345,18 @@ int CheckSyslogIgnoreFile(EventList * ignore_list, XPathList ** xpath_queries, c
         }
 	}
 
-	/* Can't run as IncludeOnly with no results set to include */
+	// Can't run as IncludeOnly with no results set to include //
 	if (SyslogIncludeOnly && IGNORED_LINES == 0)
 	{
 		Log(LOG_ERROR,"You cannot set the IncludeOnly flag and not specify any events to include!");
 		return -1;
 	}
 
-	/* Success */
+	// Success //
 	return 0;
 }
 
-/* Check and add XPath to list */
+// Check and add XPath to list //
 XPathList* CheckXPath(XPathList * xpathList, char * line, char * delim)
 {
     char *source = (char*)malloc(SOURCE_SZ);
@@ -399,55 +416,55 @@ void DeleteXPath(XPathList* oldXPath) {
     free(oldXPath);
 }
 
-/* Check Syslog Status Interval */
+// Check Syslog Status Interval //
 int CheckSyslogInterval(char * interval)
 {
 	DWORD minutes;
 
-	/* Convert interval to integer */
+	// Convert interval to integer //
 	minutes = atoi(interval);
 
-	/* Check for valid number */
+	// Check for valid number //
 	if (minutes < 0 || minutes > 65535) {
 		Log(LOG_ERROR, "Bad interval: %s \nMust be between 0 and 65,535 minutes", interval);
 		return 1;
 	}
 
-	/* Store new value */
+	// Store new value //
 	SyslogStatusInterval = minutes;
 
-	/* Success */
+	// Success //
 	return 0;
 }
 
-/* Check for DHCP flag */
+// Check for DHCP flag //
 int CheckSyslogQueryDhcp(char * arg)
 {
 	DWORD value;
 
-	/* Try converting to integer */
+	// Try converting to integer //
 	value = atoi(arg);
 
-	/* Check for valid number */
+	// Check for valid number //
 	if (value < 0 || value > 0xffff) {
 		Log(LOG_ERROR, "Invalid boolean value: %s", arg);
 		return 1;
 	}
 
-	/* Store new value */
+	// Store new value //
 	SyslogQueryDhcp = value ? TRUE : FALSE;
 
-	/* Success */
+	// Success //
 	return 0;
 }
 
-/* Check for IncludeOnly flag */
+// Check for IncludeOnly flag //
 int CheckSyslogIncludeOnly()
 {
-	/* Store new value */
+	// Store new value //
 	SyslogIncludeOnly = TRUE;
 
-	/* Success */
+	// Success //
 	return 0;
 }
 
@@ -464,14 +481,14 @@ int CheckSyslogTag(char * arg)
 	return 0;
 }
 
-/* Check for new Crimson Log Service */
+// Check for new Crimson Log Service //
 int CheckForWindowsEvents()
 {
 	HKEY hkey = NULL;
     BOOL winEvents = FALSE;
 
-	/* Check if the new Windows Events Service is in use */
-	/* If so we will use the new API's to sift through events */
+	// Check if the new Windows Events Service is in use //
+	// If so we will use the new API's to sift through events //
 	if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Channels\\ForwardedEvents", 0, KEY_READ, &hkey) != ERROR_SUCCESS)
 		winEvents = FALSE;
 	else
@@ -480,8 +497,8 @@ int CheckForWindowsEvents()
 	if (hkey)
 		RegCloseKey(hkey);
 
-	/* A level of 1 (Critical) is not valid in this process prior
-	 * to the new Windows Events. Set level to 2 (Error) */
+	// A level of 1 (Critical) is not valid in this process prior //
+	// to the new Windows Events. Set level to 2 (Error) //
 	if (winEvents == FALSE && SyslogLogLevel == 1)
 		SyslogLogLevel = 2;
 
