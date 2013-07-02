@@ -80,8 +80,13 @@ static struct WSockSockets SyslogSockets[] = {
 	{ "LogHost2", INVALID_SOCKET, FALSE },
     { "LogHost3", INVALID_SOCKET, FALSE },
 	{ "LogHost4", INVALID_SOCKET, FALSE },
+    { "LogHost5", INVALID_SOCKET, FALSE },
+    { "LogHost6", INVALID_SOCKET, FALSE },
 	{ "LogHostDhcp", INVALID_SOCKET, FALSE }
 };
+
+// Prototypes //
+void ReconnectSocket(int id);
 
 /* Start Winsock access */
 int WSockStart()
@@ -180,6 +185,30 @@ int ConnectSocket(char * loghost, unsigned short port, int ID)
 	return 0;
 }
 
+// Reconnect a disconnected socket //
+void ReconnectSocket(int id)
+{
+    int result = 0;
+
+    result = connect(SyslogSockets[id].Socket,
+					 (SOCKADDR*)&SyslogSockets[id].SockAddress,
+					 sizeof(SyslogSockets[id].SockAddress));
+
+	if (result == SOCKET_ERROR) {
+		Log(LOG_ERROR|LOG_SYS,
+			"Connecting socket for %s failed with error %d",
+			SyslogSockets[id].Name,
+			WSAGetLastError());
+		return;
+	}
+
+    Log(LOG_INFO, "Socket %s reconnected successfully",
+        SyslogSockets[id].Name);
+
+	/* Success */
+	SyslogSockets[id].Connected = TRUE;
+}
+
 /* Close connection */
 void WSockClose()
 {
@@ -213,10 +242,14 @@ int WSockSend(char * message)
 	{
 	    /* Send to syslog server */
 	    if(SyslogSockets[i].Socket != INVALID_SOCKET) {
-		    if(send(SyslogSockets[i].Socket, message, len, 0) != len) {
+            if (SyslogSockets[i].Connected == FALSE)
+                ReconnectSocket(i);
+
+            if(SyslogSockets[i].Connected && send(SyslogSockets[i].Socket, message, len, 0) != len) {
 			    if (h_errno != WSAEHOSTUNREACH && h_errno != WSAENETUNREACH) {
+                    // Log the error, but continue operation if possible //
                     Log(LOG_ERROR|LOG_SYS, "Cannot send message through socket for %s", SyslogSockets[i].Name);
-				    return 1;
+                    SyslogSockets[i].Connected = FALSE;
 			    }
 		    }
 	    }

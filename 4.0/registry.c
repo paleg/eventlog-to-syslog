@@ -79,10 +79,7 @@ static char RegistryApplicationDataPath[] = "Software\\ECN\\EvtSys\\3.0";
 // List of application data //
 static struct RegistryData RegistryApplicationDataList[] = {
 	{ "Facility", REG_DWORD, &SyslogFacility, sizeof(SyslogFacility), TRUE },
-	{ "LogHost", REG_SZ, &SyslogLogHost1, sizeof(SyslogLogHost1), TRUE },
-	{ "LogHost2", REG_SZ, &SyslogLogHost2, sizeof(SyslogLogHost2), FALSE },
-    { "LogHost3", REG_SZ, &SyslogLogHost3, sizeof(SyslogLogHost3), FALSE },
-	{ "LogHost4", REG_SZ, &SyslogLogHost4, sizeof(SyslogLogHost4), FALSE },
+	{ "LogHost", REG_SZ, &SyslogLogHosts, sizeof(SyslogLogHosts), TRUE },
 	{ "Port", REG_DWORD, &SyslogPort, sizeof(SyslogPort), TRUE },
 	{ "StatusInterval", REG_DWORD, &SyslogStatusInterval, sizeof(SyslogStatusInterval), FALSE },
 	{ "QueryDhcp", REG_DWORD, &SyslogQueryDhcp, sizeof(SyslogQueryDhcp), FALSE },
