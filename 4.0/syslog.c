@@ -63,7 +63,7 @@
 // syslog //
 
 // Application data configuration //
-char SyslogLogHosts[(SYSLOG_HOST_SZ+1)*4];
+char SyslogLogHosts[(SYSLOG_HOST_SZ+1)*6];
 char SyslogLogHost1[SYSLOG_HOST_SZ+1];
 char SyslogLogHost2[SYSLOG_HOST_SZ+1];
 char SyslogLogHost3[SYSLOG_HOST_SZ+1];
