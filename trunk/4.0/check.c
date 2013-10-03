@@ -179,6 +179,8 @@ int CheckSyslogLogHost(char * loghostarg)
     char delim[] = ";";
 
     // Store new value //
+    strncpy_s(SyslogLogHosts, sizeof(SyslogLogHosts), loghostarg, _TRUNCATE);
+
     // Need to clean up the whole host storage mechanism
     // so much duplication is unacceptable
     loghost = strtok_s(loghostarg, delim, &next_token);

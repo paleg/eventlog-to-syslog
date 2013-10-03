@@ -152,7 +152,7 @@
 #define SYSLOG_TAG_SZ		64
 
 /* Application data configuration */
-extern char SyslogLogHosts[(SYSLOG_HOST_SZ+1)*4];
+extern char SyslogLogHosts[(SYSLOG_HOST_SZ+1)*6];
 extern char SyslogLogHost1[SYSLOG_HOST_SZ+1];
 extern char SyslogLogHost2[SYSLOG_HOST_SZ+1];
 extern char SyslogLogHost3[SYSLOG_HOST_SZ+1];
